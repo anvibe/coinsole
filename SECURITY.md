@@ -28,7 +28,7 @@ Coinsole is a launcher: **only add games you trust.**
   exactly as if you opened them yourself.
 - **In version 1.0, web games are not sandboxed:** they run inside Coinsole's own window, and a web game
   can reach the same functions as Coinsole's interface.
-- **In the current source, and in releases after 1.0,** each web game plays in a sandboxed frame with a web
+- **From version 1.1 on,** each web game plays in a sandboxed frame with a web
   origin of its own. It cannot send Coinsole's commands, reach its interface, or read another game's files
   or saved data, and talks to Coinsole only through [a few messages](docs/ADDING-GAMES.md#web-games). It is
   still a web page, so it can use the network.

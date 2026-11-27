@@ -481,7 +481,7 @@ final class Arcade: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKN
         let centred = NSMutableParagraphStyle(); centred.alignment = .center
         text.addAttribute(.paragraphStyle, value: centred, range: NSRange(location: 0, length: text.length))
         NSApp.activate(ignoringOtherApps: true)
-        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Coinsole", .applicationVersion: "1.0", .version: "", .credits: text])
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Coinsole", .applicationVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "", .version: "", .credits: text])
     }
 
     func buildMenu() {

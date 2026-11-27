@@ -792,7 +792,7 @@ function demo(cmd, data) {
 const store = { get(k, d) { try { const v = localStorage.getItem("arcade." + k); return v === null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem("arcade." + k, JSON.stringify(v)); } catch {} } };
 const S = { skinPref: store.get("skin", "auto"), paused: false, pad: { connected: false, name: "", battery: -1 }, games: [], favorites: [], sel: 0, view: "home", credits: native ? 0 : 10, running: null, web: null, gridSel: 0, setSel: 0, confirm: null, topScore: 0,
   sound: store.get("sound", true) };
-const VERSION = "1.0";
+const VERSION = "1.1";
 // button names for the controller in use: Xbox letters, or PlayStation symbols
 const PS_NAMES = { a: "✕", b: "○", x: "□", y: "△", l: "L1", r: "R1" }, XB_NAMES = { a: "A", b: "B", x: "X", y: "Y", l: "L", r: "R" };
 const KB_NAMES = { a: "⏎", b: "esc", x: "F", y: "I", l: "↑", r: "↓" }, KB_WORDS = { a: "ENTER", b: "ESC", x: "F", y: "I", l: "UP", r: "DOWN" };
