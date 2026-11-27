@@ -1,9 +1,9 @@
 // Pixel Serpent: steer the serpent, eat the glowing fruit, grow longer, don't bite yourself or the walls.
-// Golden fruit appears now and then for a short time and is worth more. It gets faster as you grow.
+// Golden fruit appears now and then for a short time and is worth more. It gets faster as you grow, and as time passes.
 const GAME_ID = "pixel-serpent";
 const CELL = 10, COLS = 42, ROWS = 21, TOP = 30;          // field 420x210 under a 30px score bar
 const LEFT = (W - COLS * CELL) / 2;                        // the field sits in the middle
-let st = "title", snake, dir, queue, food, gold, goldT, score, stepT, step, dead, deathT, pops;
+let st = "title", snake, dir, queue, food, gold, goldT, score, stepT, step, dead, deathT, pops, age, level, faster;
 
 function place() {
   while (true) {
@@ -14,7 +14,7 @@ function place() {
 function newGame() {
   snake = [{ x: 11, y: 10 }, { x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
   dir = { x: 1, y: 0 }; queue = []; food = null; food = place(); gold = null; goldT = 0;
-  score = 0; step = 0.12; stepT = 0; dead = false; deathT = 0; pops = []; st = "play";
+  score = 0; step = 0.12; stepT = 0; age = 0; level = 0; faster = 0; dead = false; deathT = 0; pops = []; st = "play";
   snd(523, 0.08); snd(784, 0.12, "square", 0.05, 0);
 }
 function turn(x, y) {
@@ -29,9 +29,12 @@ function update(dt) {
   pops = pops.filter((p) => (p.t += dt) < 0.6);
   if (dead) { deathT += dt; if (deathT > 1.2) { st = "over"; saveBest(score); } return; }
   if (gold && (goldT -= dt) <= 0) gold = null;
+  age += dt; faster = Math.max(0, faster - dt);
+  if (Math.floor(age / 20) > level) { level++; if (level <= 6) { faster = 1.4; snd(660, 0.1); snd(990, 0.18, "square", 0.04, 200); } }
+  const tick = Math.max(0.045, step * Math.max(0.65, 1 - level * 0.06));     // seconds per move
   stepT += dt;
-  while (stepT >= step) {
-    stepT -= step;
+  while (stepT >= tick) {
+    stepT -= tick;
     if (queue.length) dir = queue.shift();
     const h = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
     if (h.x < 0 || h.y < 0 || h.x >= COLS || h.y >= ROWS || snake.slice(0, -1).some((s) => s.x === h.x && s.y === h.y)) {
@@ -71,6 +74,7 @@ function draw() {
     }
   });
   pops.forEach((p) => txt("+" + p.v, LEFT + p.x * CELL + 5, TOP + p.y * CELL - 8 - p.t * 20, 8, p.v > 10 ? C.yellow : C.white));
+  if (st === "play" && faster > 0 && blink(8)) txt("SPEED UP!", W / 2, 10, 8, C.yellow);
   if (st === "over") {
     const px = W / 2 - 100;
     rect(px, 80, 200, 90, "rgba(5,17,10,0.92)"); rect(px, 80, 200, 2, C.green); rect(px, 168, 200, 2, C.green);

@@ -227,35 +227,36 @@ if (dt > 0 && running && !S.over && !S.won) {
       if (prog > 0.45) { S.gullT -= dt; if (S.gullT <= 0) { S.gullT = 7 + Math.random() * 3; spawnGull(); } }
     }
     // enemies
+    const edt = dt * (1 + 0.4 * prog + 0.2 * Math.min(1, S.clock / 90));   // faster the further and longer you go
     for (const e of S.enemies) {
-      if (e.type === "fish" && !e.alive) { e.respawn -= dt; if (e.respawn <= 0) { e.alive = true; e.under = true; e.hp = 1; e.t = 1; } continue; }
+      if (e.type === "fish" && !e.alive) { e.respawn -= edt; if (e.respawn <= 0) { e.alive = true; e.under = true; e.hp = 1; e.t = 1; } continue; }
       if (!e.alive) continue;
       if (e.type === "crab") {
         if (e.mode === "hidden") { if (S.lifeT > 4 && Math.abs(e.x - S.x) < 8.5 * T) { e.mode = "rise"; e.t = 0; p.emit("rise"); } continue; }
-        if (e.mode === "rise") { e.t += dt; if (e.t > 0.5) { e.mode = "walk"; e.t = 0; e.vx = (hx > e.x + e.w / 2 ? 1 : -1) * (130 + 60 * prog); } continue; }
-        e.vy = Math.min(1700, e.vy + G * dt);
+        if (e.mode === "rise") { e.t += edt; if (e.t > 0.5) { e.mode = "walk"; e.t = 0; e.vx = (hx > e.x + e.w / 2 ? 1 : -1) * (130 + 60 * prog); } continue; }
+        e.vy = Math.min(1700, e.vy + G * edt);
         if (moveX(e)) e.vx = -e.vx;
         moveY(e);
         if (e.ground) { const ahead = e.vx > 0 ? Math.floor((e.x + e.w + 2) / T) : Math.floor((e.x - 2) / T); if (cell(ahead, Math.floor((e.y + e.h + 4) / T)) === " ") e.vx = -e.vx; }
-        e.t += dt;
+        e.t += edt;
         if (e.t > 2.5) { e.t = 0; if (Math.random() < 0.5) e.vx = (hx > e.x + e.w / 2 ? 1 : -1) * Math.abs(e.vx); }
         if (e.y > ROWS * T || (e.spawned && Math.abs(e.x - S.x) > VW * 1.2)) e.alive = false;
       } else if (e.type === "gull") {
         if (e.mode === "glide") {
-          e.x += e.vx * dt; e.y = e.baseY + Math.sin(S.clock * 4 + e.ph) * 14;
+          e.x += e.vx * edt; e.y = e.baseY + Math.sin(S.clock * 4 + e.ph) * 14;
           if (e.x < hx + 5.5 * T && e.x > hx) {
             // dive at head height: duck (hold down) and it passes over you
             const standTop = S.crouch ? S.y - 32 : S.y, ty = standTop + 12 - e.h / 2;
             e.mode = "dive"; e.vx = -600; e.ty = ty; e.vy = (ty - e.y) / Math.max(0.3, (e.x - hx) / 600);
           }
         } else if (e.mode === "dive") {
-          e.x += e.vx * dt; e.y += e.vy * dt;
+          e.x += e.vx * edt; e.y += e.vy * edt;
           if (e.y >= e.ty || e.x < hx - 40) { e.y = Math.min(e.y, e.ty); e.mode = "climb"; e.vx = -520; e.vy = -380; }
-        } else { e.x += e.vx * dt; e.y += e.vy * dt; }
+        } else { e.x += e.vx * edt; e.y += e.vy * edt; }
         if (e.x < S.camX - 160 || e.y < -120) e.alive = false;
       } else if (e.type === "fish") {
-        if (e.under) { e.t -= dt; if (e.t <= 0) { e.under = false; e.y = GROUND + 40; e.vy = -1250; e.vx = (Math.random() < 0.5 ? -1 : 1) * 60; if (e.x > S.camX && e.x < S.camX + VW) p.emit("fish"); } }
-        else { e.vy += 2200 * dt; e.y += e.vy * dt; e.x = clamp(e.x + e.vx * dt, e.minX, e.maxX); if (e.vy > 0 && e.y > GROUND + 40) { e.under = true; e.t = 1.6 + Math.random(); } }
+        if (e.under) { e.t -= edt; if (e.t <= 0) { e.under = false; e.y = GROUND + 40; e.vy = -1250; e.vx = (Math.random() < 0.5 ? -1 : 1) * 60; if (e.x > S.camX && e.x < S.camX + VW) p.emit("fish"); } }
+        else { e.vy += 2200 * edt; e.y += e.vy * edt; e.x = clamp(e.x + e.vx * edt, e.minX, e.maxX); if (e.vy > 0 && e.y > GROUND + 40) { e.under = true; e.t = 1.6 + Math.random(); } }
       }
       const harmful = e.type === "crab" ? e.mode === "walk" : e.type === "fish" ? !e.under && e.y < GROUND + 10 : true;
       if (harmful && hit(S, e, 10)) { if (S.boost > 0 && e.type !== "boss") damage(e, 99); else hurt(); }

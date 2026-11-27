@@ -1,15 +1,15 @@
 // Meteor Run: fly your ship along the bottom of the screen and blast the meteors falling from space.
-// Big meteors split into smaller ones. Three lives; it gets busier the longer you last.
+// Big meteors split into smaller ones. Three lives; it gets busier and faster the longer you last.
 const GAME_ID = "meteor-run";
 // its own space palette (Pixel Serpent is the green one): deep indigo, cyan and orange
 const M = { bg: "#07051a", panel: "rgba(7,5,26,0.92)", cyan: "#4fd8ff", blue: "#2a6bff", orange: "#ff8a3d", star1: "#9b8cff", star2: "#3d3478" };
 const SIZES = [0, 5, 9, 14];                              // radius by size 1..3
-let st = "title", ship, shots, rocks, sparks, score, lives, wave, spawnT, inv, shake, over;
+let st = "title", ship, shots, rocks, sparks, score, lives, wave, spawnT, inv, shake, over, level, faster;
 const stars = Array.from({ length: 93 }, (_, i) => ({ x: Math.random() * W, y: Math.random() * H, s: 1 + (i % 3) }));
 
 function newGame() {
   ship = { x: W / 2, y: 210, cool: 0 }; shots = []; rocks = []; sparks = [];
-  score = 0; lives = 3; wave = 0; spawnT = 1; inv = 2; shake = 0; over = 0; st = "play";
+  score = 0; lives = 3; wave = 0; level = 0; faster = 0; spawnT = 1; inv = 2; shake = 0; over = 0; st = "play";
   snd(392, 0.08); snd(587, 0.12, "square", 0.05);
 }
 function rock(x, y, size, vx, vy) {
@@ -20,9 +20,11 @@ function burst(x, y, n, col) { for (let i = 0; i < n; i++) { const a = Math.rand
 function update(dt) {
   for (const s of stars) { s.y += s.s * 18 * dt; if (s.y > H) { s.y = 0; s.x = Math.random() * W; } }
   if (st !== "play") { if (st === "over") over += dt; if (pressed("a") && (st === "title" || over > 1)) newGame(); return; }
-  wave += dt; inv = Math.max(0, inv - dt); shake = Math.max(0, shake - dt);
+  wave += dt; inv = Math.max(0, inv - dt); shake = Math.max(0, shake - dt); faster = Math.max(0, faster - dt);
+  const pace = Math.min(1.8, 1 + wave / 120);              // the longer you last, the faster it all moves
+  if (Math.floor(wave / 20) > level) { level++; if (level <= 5) { faster = 1.4; snd(660, 0.1); snd(990, 0.18, "square", 0.04, 200); } }
   // ship
-  const sp = 190;
+  const sp = 190 * Math.min(1.35, 1 + wave / 240);          // your ship gets quicker too, to keep it fair
   if (IN.left) ship.x -= sp * dt; if (IN.right) ship.x += sp * dt;
   ship.x = Math.max(12, Math.min(W - 12, ship.x));
   ship.cool -= dt;
@@ -35,7 +37,7 @@ function update(dt) {
     rock(10 + Math.random() * (W - 20), -16, big ? 3 : 2, (Math.random() - 0.5) * 40, 25 + Math.random() * 30 + wave * 0.6);
     spawnT = Math.max(0.27, (1.4 - wave / 60) * 0.76);
   }
-  rocks.forEach((r) => { r.x += r.vx * dt; r.y += r.vy * dt; r.spin += dt; if (r.x < r.r || r.x > W - r.r) r.vx *= -1; });
+  rocks.forEach((r) => { r.x += r.vx * dt * pace; r.y += r.vy * dt * pace; r.spin += dt; if (r.x < r.r || r.x > W - r.r) r.vx *= -1; });
   // shots hit meteors
   for (const s of shots) for (const r of rocks) {
     if (r.dead || s.hit) continue;
@@ -83,6 +85,7 @@ function draw() {
   txt(String(score).padStart(6, "0"), 8, 8, 8, C.white, "left");
   txt("HI " + String(Math.max(best(), score)).padStart(6, "0"), W / 2, 8, 8, M.cyan);
   for (let i = 0; i < lives; i++) sprite(SHIP, W - 16 - i * 12, 6, { w: C.white, g: M.blue, l: M.cyan, p: M.orange });
+  if (st === "play" && faster > 0 && blink(8)) txt("SPEED UP!", W / 2, 26, 8, C.yellow);
   if (st === "over") {
     const px = W / 2 - 100;
     rect(px, 80, 200, 86, M.panel); rect(px, 80, 200, 2, M.cyan); rect(px, 164, 200, 2, M.cyan);
