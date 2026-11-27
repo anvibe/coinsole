@@ -1,0 +1,38 @@
+# Security policy
+
+## Supported versions
+
+Only the [latest release](https://github.com/anvibe/coinsole/releases/latest) gets security fixes.
+
+## Reporting a vulnerability
+
+Please **do not open a public issue** for a security problem.
+
+Report it privately: open the [Security tab](https://github.com/anvibe/coinsole/security) of this
+repository and choose **Report a vulnerability**.
+
+It helps to include:
+
+- the Coinsole and macOS versions
+- the steps that show the problem, and a sample file or game if one is needed
+- what someone could do by exploiting it
+
+Coinsole is a one-person project, so a reply may take a few days. Please allow time for a fix before
+publishing details.
+
+## What to know before adding games
+
+Coinsole is a launcher: **only add games you trust.**
+
+- Mac apps, start scripts and program files in the `Games` folder run with your account's permissions,
+  exactly as if you opened them yourself.
+- Web games run inside Coinsole's own window and are **not sandboxed** from it. A web game can reach
+  the same functions as Coinsole's interface.
+- Coinsole does not check, scan or verify the games you add.
+
+## Official downloads
+
+Download Coinsole only from the
+[Releases page](https://github.com/anvibe/coinsole/releases) of this repository. The released disk image
+is signed with an Apple Developer ID and notarised by Apple. You can also build the app yourself from
+this source with `build.sh`.
