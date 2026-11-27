@@ -50,7 +50,7 @@ To build somewhere else, pass a folder: `./build.sh ~/Desktop/Coinsole`.
 ./make_dmg.sh
 ```
 
-This creates `build/Coinsole-1.1.dmg`, signed and notarised if your Mac has the Apple certificate and
+This creates `build/Coinsole-1.2.dmg`, signed and notarised if your Mac has the Apple certificate and
 credentials described at the top of the script. Open it and drag Coinsole onto Applications. An installed copy
 keeps its games in `~/Library/Application Support/Coinsole/Games` (use **Open games folder** in Settings).
 
