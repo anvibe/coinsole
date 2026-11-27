@@ -594,11 +594,16 @@ final class Arcade: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKN
             NSApp.presentationOptions = []
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
             window.title = "Coinsole"
-            if let f = windowedFrame { window.setFrame(f, display: true) }
-            else { let area = (window.screen ?? NSScreen.main!).visibleFrame; window.setFrame(NSRect(x: area.midX - 720, y: area.midY - 405, width: 1440, height: 810), display: true) }
+            let area = (window.screen ?? NSScreen.main!).visibleFrame
+            let back = windowedFrame ?? NSRect(x: area.midX - 720, y: area.midY - 405, width: 1440, height: 810)
+            window.setFrame(back, display: true)
+            // naming the window again restores its saved frame, which macOS may move to the display that
+            // has the keyboard, so put the window back where it was
             window.setFrameAutosaveName("Coinsole window")
+            window.setFrame(back, display: true)
         }
         window.makeKeyAndOrderFront(nil)
+        window.makeFirstResponder(web) // changing the window's style takes the keyboard away from the page
         DistributedNotificationCenter.default().postNotificationName(NSNotification.Name("coinsole.game.kiosk"), object: on ? "1" : "0", userInfo: nil, deliverImmediately: true)
         gameFollowWindow()
     }

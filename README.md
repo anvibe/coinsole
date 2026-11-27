@@ -5,6 +5,11 @@ arcade-style screen with an Xbox or PlayStation controller, credits and a big-sc
 
 ![Coinsole home screen](docs/screenshots/home.jpg)
 
+## Download
+
+**[Download Coinsole for Mac](https://github.com/anvibe/coinsole/releases/latest)**, open the disk image and drag
+Coinsole onto Applications. It is signed and notarised by Apple, and runs on macOS 12 or later (Apple silicon or Intel).
+
 ## Features
 
 - **Your games, one console.** Mac apps, web games (HTML) and game folders, each with a cover and an info card.
@@ -50,8 +55,9 @@ credentials described at the top of the script. Open it and drag Coinsole onto A
 keeps its games in `~/Library/Application Support/Coinsole/Games` (use **Open games folder** in Settings).
 
 The first time it opens a folder on your Desktop or in Documents, macOS asks for permission.
-The app is signed ad hoc (not notarized), so the first time you open a downloaded copy, macOS blocks it:
-open **System Settings → Privacy & Security** and choose **Open Anyway**.
+An app you build yourself without an Apple Developer ID certificate is signed ad hoc, so if you pass it to
+someone else, macOS blocks it the first time: they open **System Settings → Privacy & Security** and choose
+**Open Anyway**.
 
 ## Controls
 
