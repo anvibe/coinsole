@@ -93,6 +93,9 @@ new shell around them (for example with Tauri or Electron). Contributions are we
 
 Made by **Fausto Melchiorre**: [faustomelchiorre.com](https://faustomelchiorre.com/)
 
+- [**Nocodo** by Fausto Melchiorre](https://www.nocodo.it/)
+- [**Anvibe**](https://anvibe.it/), an idea by Nocodo by Fausto Melchiorre
+
 If you enjoy Coinsole, you can support it with the **♥ Sponsor** button at the top of this page.
 
 ## Licence
