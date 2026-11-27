@@ -3,5 +3,6 @@
   "year": "2026",
   "aspect": "16:9",
   "description": "Run, jump and throw frisbees across a sunny beach. Dodge crabs, diving gulls and leaping fish, collect shells to ride the scooter, and beat the Giant Crab before time runs out.",
-  "controls": "Stick or d-pad move · Down ducks · A jump · X throw · A or Menu start · Esc back to Coinsole"
+  "controls": "Stick or d-pad move · Down ducks · A or Space jump · X throw · A or Menu start · Esc back to Coinsole",
+  "keys": { "ArrowLeft": "", "ArrowRight": "", "ArrowDown": "DUCK", "Space": "JUMP", "KeyX": "THROW" }
 }

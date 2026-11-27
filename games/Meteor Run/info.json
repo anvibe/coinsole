@@ -3,5 +3,6 @@
   "year": "2026",
   "aspect": "16:9",
   "description": "Fly along the bottom of the screen and blast the meteors falling from space. Big rocks split into smaller ones, and the sky gets busier the longer you last. Three lives.",
-  "controls": "Stick or d-pad move · A fire · Esc back to Coinsole"
+  "controls": "Stick or d-pad move · A or Space fire · Esc back to Coinsole",
+  "keys": { "ArrowLeft": "", "ArrowRight": "", "Space": "FIRE" }
 }

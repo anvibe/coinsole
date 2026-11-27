@@ -33,6 +33,13 @@ Add a game by dropping it on the Coinsole window, choosing **Add game**, or copy
 When you add a `.app` from somewhere else, the files with the same name next to it (cover, icon and
 info) come with it. In a folder that holds an app, files named after the app work too.
 
+`keys` is optional: the keys the game uses, with a short word for what each does (up to 7 letters, or `""`).
+While the game plays, Coinsole's on-screen keyboard shows them. Keys are named as in web pages:
+
+```json
+{ "keys": { "ArrowLeft": "", "ArrowRight": "", "Space": "JUMP", "KeyZ": "THROW" } }
+```
+
 `aspect` is the game's screen shape (`"4:3"`, `"16:9"`, `"8:7"`…). Coinsole's screens take that shape,
 so the game fills them without black bars. Without it, Coinsole assumes 16:9.
 

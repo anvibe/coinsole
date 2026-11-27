@@ -319,6 +319,9 @@ final class CabinetView: WKWebView {
 final class KioskWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+    // A key the page or a game has no use for comes back to the window, where macOS would play its alert sound
+    // at every press. Shortcuts such as Cmd-Q are handled before this.
+    override func keyDown(with event: NSEvent) {}
 }
 
 // macOS draws a frame from another origin at half speed until it is clicked or typed in, which a game played

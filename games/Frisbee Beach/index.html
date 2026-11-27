@@ -40,7 +40,7 @@ function timeline() {
 
 // ---- inputs (the names the game reads) ----
 const I = { left: 0, right: 0, down: 0, jumpHeld: 0, fireHeld: 0, jumpCount: 0, fireCount: 0, round: 0 };
-const KEYS = { left: ["ArrowLeft", "KeyA"], right: ["ArrowRight", "KeyD"], down: ["ArrowDown", "KeyS"], jump: ["Space", "KeyX", "ArrowUp", "KeyW"], fire: ["KeyZ"], go: ["Space", "Enter"] };
+const KEYS = { left: ["ArrowLeft", "KeyA"], right: ["ArrowRight", "KeyD"], down: ["ArrowDown", "KeyS"], jump: ["Space", "ArrowUp", "KeyW"], fire: ["KeyX", "KeyZ"], go: ["Space", "Enter"] };
 const K = {};
 function startOrRestart() { I.round++; fire("start"); fire("restart"); }
 addEventListener("keydown", (e) => {

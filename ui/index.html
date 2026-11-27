@@ -369,9 +369,12 @@
   #kbpad .sub { font: 800 8px var(--ui); letter-spacing: 1px; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
   #kbpad .k { transition: transform 0.05s; }
   #kbpad .act { cursor: pointer; --c: var(--xg); }
-  #kbpad .act .cap { stroke: var(--c); stroke-width: 1.8; filter: drop-shadow(0 0 5px color-mix(in srgb, var(--c) 60%, transparent)); }
+  #kbpad .act .cap { stroke: var(--c); stroke-width: 1.6; }
   #kbpad .act .lbl { fill: #fff; } #kbpad .act .sub { fill: var(--c); }
   #kbpad .act:hover .cap { fill: #3a2d12; }
+  #kbpad .game { cursor: default; } #kbpad .game:hover .cap { fill: url(#kbKey); } #kbpad #kb-Escape.game { cursor: pointer; }
+  #kbpad .k.on.game .cap { fill: var(--c, var(--xg)); }
+  #kbpad .game:not(.act):not(.on) { opacity: 0.3; }     /* while playing, only the game's keys stand out */
   #kbpad .main .cap { fill: url(#kbMain); } #kbpad .main .lbl, #kbpad .main .sub { fill: #1c1200; }
   #kbpad .k.on { transform: translateY(2px); }
   #kbpad .k.on .cap { fill: var(--c, var(--xg)); stroke: #fff; filter: drop-shadow(0 0 12px var(--c, var(--xg))); }
@@ -1032,21 +1035,37 @@ function updatePadScreen() {
 // [code, label, width in keys, what it does in Coinsole, colour]
 const KB_ROWS = [
   [["Escape", "esc", 1.5, "BACK", "#ff5a5a"], ..."1234567890".split("").map((n) => ["Digit" + n, n, 1]), ["Backspace", "⌫", 2]],
-  [["Tab", "tab", 1.5], ..."QWERTYU".split("").map((c) => ["Key" + c, c, 1]), ["KeyI", "I", 1, "INFO", "#ffe14d"], ["KeyO", "O", 1], ["KeyP", "P", 1], ["BracketLeft", "[", 1], ["BracketRight", "]", 1]],
-  [["CapsLock", "caps", 1.75], ..."ASD".split("").map((c) => ["Key" + c, c, 1]), ["KeyF", "F", 1, "FAV", "#4f9dff"], ..."GHJKL".split("").map((c) => ["Key" + c, c, 1]), ["Enter", "enter ⏎", 2.75, "PLAY", "#ffb000"]],
-  [["ShiftLeft", "shift", 2.25], ["KeyZ", "Z", 1], ["KeyX", "X", 1], ["KeyC", "C", 1, "COINS", "#ffd84a"], ["KeyV", "V", 1], ["KeyB", "B", 1, "BIG", "#ffffff"], ["KeyN", "N", 1], ["KeyM", "M", 1], ["Comma", ",", 1], ["Period", ".", 1], ["ArrowUp", "↑", 1, "", "#ffb000"], ["ShiftRight", "shift", 1.25]],
+  [["Tab", "tab", 1.5], ..."QWERTYU".split("").map((c) => ["Key" + c, c, 1]), ["KeyI", "I", 1, "INFO", "#ffb000"], ["KeyO", "O", 1], ["KeyP", "P", 1], ["BracketLeft", "[", 1], ["BracketRight", "]", 1]],
+  [["CapsLock", "caps", 1.75], ..."ASD".split("").map((c) => ["Key" + c, c, 1]), ["KeyF", "F", 1, "FAV", "#ffb000"], ..."GHJKL".split("").map((c) => ["Key" + c, c, 1]), ["Enter", "enter ⏎", 2.75, "PLAY", "#ffb000"]],
+  [["ShiftLeft", "shift", 2.25], ["KeyZ", "Z", 1], ["KeyX", "X", 1], ["KeyC", "C", 1, "COINS", "#ffb000"], ["KeyV", "V", 1], ["KeyB", "B", 1, "BIG", "#ffb000"], ["KeyN", "N", 1], ["KeyM", "M", 1], ["Comma", ",", 1], ["Period", ".", 1], ["ArrowUp", "↑", 1, "", "#ffb000"], ["ShiftRight", "shift", 1.25]],
   [["ControlLeft", "control", 1.25], ["AltLeft", "option", 1.25], ["MetaLeft", "⌘", 1.5], ["Space", "", 5, "PLAY", "#ffb000"], ["MetaRight", "⌘", 1.25], ["ArrowLeft", "←", 1, "", "#ffb000"], ["ArrowDown", "↓", 1, "", "#ffb000"], ["ArrowRight", "→", 1.25, "", "#ffb000"]],
 ];
 const KB_KEY = { Escape: "Escape", Enter: "Enter", Space: " ", ArrowUp: "ArrowUp", ArrowDown: "ArrowDown", ArrowLeft: "ArrowLeft", ArrowRight: "ArrowRight", KeyF: "f", KeyI: "i", KeyC: "c", KeyB: "b" };
-function buildKeyboard() {
+// While a game is playing, the keyboard shows that game's keys instead of Coinsole's. A game names them in
+// its info file: "keys": {"Space": "JUMP", "KeyZ": "THROW", "ArrowLeft": ""}.
+const WEB_KEYS = { ArrowUp: "", ArrowDown: "", ArrowLeft: "", ArrowRight: "", Space: "A" };
+const keyboard = { shown: null, held: new Set() };
+function gameKeys() {
+  const g = S.games.find((x) => x.id === (S.web || (S.running && !S.paused ? S.running : null)));
+  if (!g) return null;
+  const own = g.info && g.info.keys && typeof g.info.keys === "object" ? g.info.keys : g.kind === "web" ? WEB_KEYS : null;
+  if (!own) return null;                      // a Mac game that has not said which keys it uses
+  return { id: g.id, keys: g.kind === "web" ? { Escape: "QUIT", ...own } : own };
+}
+function buildKeyboard(game = null) {
+  keyboard.shown = game ? game.id : "";
   const U = 49, grad = (id, a, b) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`;
   let keys = "";
   KB_ROWS.forEach((row, r) => {
     let x = 16;
     for (const [code, label, w, does, colour] of row) {
-      const width = w * U - 5, y = 16 + r * 47, mid = x + width / 2, act = !!KB_KEY[code];
-      keys += `<g class="k${act ? " act" : ""}${code === "Enter" ? " main" : ""}" id="kb-${code}" data-code="${code}"${colour ? ` style="--c:${colour}"` : ""}><rect class="cap" x="${x}" y="${y}" width="${width}" height="42" rx="8"/>`
-        + `<text class="lbl" x="${mid}" y="${y + (does ? 16 : 21)}">${label}</text>${does ? `<text class="sub" x="${mid}" y="${y + (label ? 31 : 21)}">${does}</text>` : ""}</g>`;
+      const used = game && Object.prototype.hasOwnProperty.call(game.keys, code), width = w * U - 5, y = 16 + r * 47, mid = x + width / 2;
+      const act = game ? used : !!KB_KEY[code];
+      // a game's words come from its own files: shortened, and only ever shown as text
+      const word = !game ? does || "" : used ? esc(String(game.keys[code]).slice(0, 7).toUpperCase()) : "";
+      const tint = !game ? colour : !used ? "" : code === "Escape" ? "#ff5a5a" : "#ffb000";
+      keys += `<g class="k${act ? " act" : ""}${game ? " game" : ""}${!game && code === "Enter" ? " main" : ""}" id="kb-${code}" data-code="${code}"${tint ? ` style="--c:${tint}"` : ""}><rect class="cap" x="${x}" y="${y}" width="${width}" height="42" rx="8"/>`
+        + `<text class="lbl" x="${mid}" y="${y + (word ? 16 : 21)}">${label}</text>${word ? `<text class="sub" x="${mid}" y="${y + (label ? 31 : 21)}">${word}</text>` : ""}</g>`;
       x += w * U;
     }
   });
@@ -1055,15 +1074,18 @@ function buildKeyboard() {
     + `<rect class="case" x="1" y="1" width="908" height="264" rx="20"/>${keys}`
     + `<rect class="screen" x="694" y="16" width="200" height="160" rx="12"/><g id="kb-dash"><text x="794" y="38" font-size="12" fill="#ffb000">CREDITS</text><text id="kb-dnum" x="794" y="76" font-size="36" fill="#ffd84d">0</text><text id="kb-dname" x="794" y="119" font-size="9" fill="#e9e0c8"></text><text id="kb-dhint" x="794" y="151" font-size="10" fill="#fff"></text></g>`
     + `<circle class="knob" cx="794" cy="219" r="31"/><path d="M794 194v14" stroke="#ffd35a" stroke-width="4" stroke-linecap="round"/>`;
+  keyboard.held.forEach((code) => document.getElementById("kb-" + code)?.classList.add("on"));
   svg.querySelectorAll(".act").forEach((k) => k.addEventListener("click", () => {
     const code = k.dataset.code;
+    if (game && code !== "Escape") return;      // a game's keys are for the real keyboard
     lightKey(code, true); setTimeout(() => lightKey(code, false), 140);
     dispatchEvent(new KeyboardEvent("keydown", { key: KB_KEY[code], code, bubbles: true }));
   }));
 }
 function lightKey(code, down) {
   // macOS can swallow a key's release while ⌘ is held, or when you leave Coinsole: put them all out
-  if (code === "all" || (!down && code.startsWith("Meta"))) document.querySelectorAll("#kbpad .k.on").forEach((k) => k.classList.remove("on"));
+  if (code === "all" || (!down && code.startsWith("Meta"))) { keyboard.held.clear(); document.querySelectorAll("#kbpad .k.on").forEach((k) => k.classList.remove("on")); }
+  if (down) keyboard.held.add(code); else keyboard.held.delete(code);
   const key = document.getElementById("kb-" + code);
   if (key) key.classList.toggle("on", !!down);
   if (down && S.keys && S.view === "padtest") document.getElementById("xpadlast").textContent = code.replace(/^(Key|Digit)/, "").replace(/([a-z])([A-Z])/g, "$1 $2").toUpperCase();
@@ -1072,11 +1094,14 @@ addEventListener("keydown", (e) => { if (e.isTrusted) lightKey(e.code, true); },
 addEventListener("keyup", (e) => lightKey(e.code, false), true);
 addEventListener("blur", () => setTimeout(() => { if (!document.hasFocus()) document.querySelectorAll("#kbpad .k.on").forEach((k) => k.classList.remove("on")); }, 0));
 function updateKeysScreen() {
-  const num = document.getElementById("kb-dnum"); if (!num) return;
+  if (keyboard.shown === null) return;                  // not drawn yet
+  const game = gameKeys();
+  if ((game ? game.id : "") !== keyboard.shown) buildKeyboard(game);
+  const num = document.getElementById("kb-dnum");
   const playing = S.games.find((x) => x.id === (S.web || S.running)) || null, g = playing || cur() || null;
   num.textContent = String(S.credits);
   document.getElementById("kb-dname").textContent = g ? (g.name.length > 20 ? g.name.slice(0, 19) + "\u2026" : g.name).toUpperCase() : "";
-  document.getElementById("kb-dhint").textContent = playing ? "NOW PLAYING" : onAdd() ? "ENTER = ADD GAME" : S.credits < 1 ? "C = CREDITS" : "ENTER = PLAY";
+  document.getElementById("kb-dhint").textContent = game ? (S.web ? "ESC = QUIT" : "NOW PLAYING") : playing ? "NOW PLAYING" : onAdd() ? "ENTER = ADD GAME" : S.credits < 1 ? "C = CREDITS" : "ENTER = PLAY";
 }
 function updatePsScreen() {
   const box = document.getElementById("ps-game"), dash = document.getElementById("ps-dash"); if (!box || !dash) return;
