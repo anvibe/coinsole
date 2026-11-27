@@ -27,7 +27,7 @@ Coinsole onto Applications. It is signed and notarised by Apple, and runs on mac
 | | | |
 |---|---|---|
 | ![Frisbee Beach](docs/screenshots/frisbee-beach.png) | ![Pixel Serpent](docs/screenshots/pixel-serpent.png) | ![Meteor Run](docs/screenshots/meteor-run.png) |
-| **Frisbee Beach:** run, jump and throw frisbees across the beach, and beat the Giant Crab. | **Pixel Serpent:** eat the fruit, grow longer, don't bite yourself. | **Meteor Run:** blast the falling meteors; big ones split. |
+| **Frisbee Beach:** run, jump and throw frisbees across three beaches, and beat the crab boss of each. | **Pixel Serpent:** eat the fruit, grow longer, don't bite yourself. | **Meteor Run:** blast the falling meteors; big ones split. |
 
 ## Build and run
 

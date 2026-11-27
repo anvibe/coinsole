@@ -2,12 +2,14 @@
 // It runs once per frame as gameFrame(ctx, t, p); the page around it plays the part of Evom.
 function gameFrame(ctx, t, p) {
 // ---------- Frisbee Beach: game rules + pixel-art drawing (this one code layer owns the game) ----------
-// Verb: run, jump and throw frisbees. Goal: cross the beach and beat the Giant Crab.
+// Verb: run, jump and throw frisbees. Goal: cross three beaches and beat the crab at the end of each.
 // Threat: crabs rise from the sand, gulls dive, fish leap from the water. The first hit knocks your
 // T-shirt off, the second costs one of 3 lives. Running out of time also costs a life.
 // Reward: score for every enemy and shell, weapons lying on the sand that change your throw, a time bonus.
 // Every 5 shells a scooter appears ahead: ride it for a few seconds, faster and unhurtable, and knock crabs over.
-// End: Game over at 0 lives, Beach clear when the crab falls. Space / Enter / tap to play again.
+// Levels: they are plain data in LEVELS below. Clearing one carries your score, shells, weapon and lives
+// (plus one) to the next; after a Game over you continue from the level you reached, with a fresh score.
+// End: Game over at 0 lives, All clear when the last crab falls. Space / Enter / tap to play again.
 const VW = p.width, VH = p.height, P = 6, LW = Math.round(VW / P), LH = Math.round(VH / P);
 const T = 72, TL = T / P, ROWS = 15, COLS = 156, GY = 12, GROUND = GY * T;
 const IN = p.inputs || {}, tt = p.t;
@@ -15,56 +17,115 @@ const IN = p.inputs || {}, tt = p.t;
 const PLAY0 = 2, PLAY1 = 4, WIN0 = 4.2, WINW = 5.0, LOST0 = 6.2, LOSTW = 7.0;
 const running = tt >= PLAY0 && tt < PLAY1;
 const G = 3600, JUMP_V = -1350, RUN = 380, LEVEL_TIME = 120, CHECK = 66, ARENA = 130;
-const PITS = []; // no holes: the beach is one long stretch of sand
 const MEL = [0, null, 4, 7, 9, null, 7, 4, 5, null, 9, 12, 11, null, 7, null, 0, null, 4, 7, 9, null, 7, 4, 2, null, 5, 9, 7, null, 0, null]; // 32 steps; null = rest (the scene's listeners give each step its pitch)
 const WEAPONS = { disc: { max: 2, cool: 0.18, dmg: 1, name: "FRISBEE" }, ball: { max: 2, cool: 0.3, dmg: 2, name: "BEACH BALL" }, gold: { max: 1, cool: 0.25, dmg: 1, name: "GOLD DISC" } };
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-function buildLevel() {
+// ---------- the levels ----------
+// All positions are in tiles (columns 0-155, ground at row 12). Every level is the same length, has its
+// checkpoint at column 66 and its boss arena from column 130.
+//   pits: water gaps as [first, last] column (3 wide at most), with a fish in each. Keep them away from
+//         columns 0-8, 62-70 (where you respawn) and 125 onwards (the arena).
+//   platforms: [column, row, width, kind]      boxes: [column, row, weapon]      shells: [column, row]
+const LEVELS = [
+  {
+    name: "SUNNY BEACH", pits: [],
+    castles: [[15, 2], [36, 2], [72, 3], [96, 2], [116, 1], [122, 2]],
+    platforms: [[20, 9, 5, "tower"], [30, 11, 3, "bench"], [40, 11, 3, "bench"], [44, 8, 4, "umbrella"], [50, 9, 4, "tiki"], [57, 11, 3, "bench"],
+      [78, 9, 5, "kiosk"], [84, 7, 4, "umbrella2"], [89, 11, 3, "bench"], [101, 9, 3, "tiki"], [107, 11, 3, "bench"]],
+    crabs: [11, 26, 41, 48, 63, 76, 82, 99, 112, 119], gulls: [28, 46, 68, 84, 100, 114],
+    boxes: [[22, 9, "ball"], [85, 7, "gold"], [102, 9, "disc"]],
+    shells: [[16, 12], [21, 9], [24, 9], [45, 8], [47, 8], [51, 9], [73, 12], [79, 9], [87, 7], [97, 12], [123, 12]],
+    crabSpeed: 1, spawnMul: 1, extraCrabs: 0, gullFrom: 0.45, gullEvery: 7, beat: 0.17,
+    boss: { name: "GIANT CRAB", hp: 14, bubbles: 3, calm: 1.7, angry: 1.2, cols: ["#e8483f", "#ff8a6a", "#b8322b", "#4a0f0f"] },
+    scenery: { palms: [2, 18, 47, 69, 93, 118, 127], umbrellas: [6, 63, 104, 134], boards: [12, 53, 82, 113, 146] },
+    look: {
+      sky: ["#7fcff6", "#86d2f7", "#8fd6f8", "#99daf8", "#a4def9", "#b0e3fa"], sea: ["#2a95c8", "#3ab0dc", "#57c2e6"],
+      sun: { x: 236, y: 36, r: 15, core: "#ffd54f", edge: "#ffe27a" }, clouds: 1, stars: false, tint: null,
+      ink: "#14234f", halo: "rgba(255,255,255,0.65)",
+    },
+  },
+  {
+    name: "SUNSET PIER", pits: [[23, 24], [41, 43], [55, 56], [80, 82], [95, 96], [108, 110], [120, 121]],
+    castles: [[14, 2], [72, 2], [114, 1]],
+    platforms: [[18, 9, 3, "bench"], [30, 9, 5, "tower"], [37, 11, 3, "bench"], [46, 9, 4, "tiki"], [51, 7, 3, "umbrella"],
+      [75, 11, 3, "bench"], [85, 9, 5, "kiosk"], [91, 7, 3, "umbrella2"], [101, 9, 4, "tiki"], [113, 9, 4, "umbrella"]],
+    crabs: [12, 28, 36, 50, 60, 74, 90, 102, 116, 124], gulls: [20, 34, 50, 72, 88, 104, 118],
+    boxes: [[32, 9, "gold"], [76, 11, "ball"], [102, 9, "gold"]],
+    shells: [[15, 12], [19, 9], [24, 11], [42, 11], [47, 9], [52, 7], [76, 11], [81, 11], [86, 9], [92, 7], [109, 11], [114, 9]],
+    crabSpeed: 1.12, spawnMul: 0.9, extraCrabs: 0, gullFrom: 0.3, gullEvery: 6.2, beat: 0.16,
+    boss: { name: "PIER CRAB", hp: 18, bubbles: 4, calm: 1.55, angry: 1.1, cols: ["#8e4fd0", "#c08cf0", "#62309a", "#26103f"] },
+    scenery: { palms: [2, 11, 38, 63, 78, 106, 127], umbrellas: [7, 62, 99, 134], boards: [27, 58, 88, 125, 146] },
+    look: {
+      sky: ["#5b3f86", "#8a4d93", "#c25c8c", "#ee7377", "#ff9a62", "#ffc46a"], sea: ["#8d5c9c", "#6f6db0", "#c9799a"],
+      sun: { x: 232, y: 88, r: 19, core: "#ffb347", edge: "#ffd884" }, clouds: 0.7, stars: false, tint: "rgba(255,96,60,0.2)",
+      ink: "#ffffff", halo: "#3a1f55",
+    },
+  },
+  {
+    name: "MOONLIGHT BAY", pits: [[19, 21], [33, 35], [47, 49], [58, 59], [74, 76], [86, 88], [98, 100], [109, 111], [119, 121]],
+    castles: [[14, 2], [102, 1]],
+    platforms: [[24, 9, 4, "tiki"], [29, 7, 3, "umbrella"], [39, 9, 5, "tower"], [53, 11, 3, "bench"], [71, 11, 2, "bench"],
+      [79, 9, 4, "umbrella2"], [91, 9, 5, "kiosk"], [104, 9, 3, "tiki"], [113, 11, 3, "bench"]],
+    crabs: [11, 17, 28, 38, 52, 71, 83, 94, 105, 115, 124], gulls: [16, 30, 44, 56, 70, 84, 96, 108, 117],
+    boxes: [[41, 9, "ball"], [80, 9, "gold"], [105, 9, "ball"]],
+    shells: [[20, 11], [25, 9], [30, 7], [34, 11], [48, 11], [54, 11], [75, 11], [81, 9], [87, 11], [92, 9], [99, 11], [110, 11], [120, 11], [123, 12]],
+    crabSpeed: 1.25, spawnMul: 0.8, extraCrabs: 1, gullFrom: 0.2, gullEvery: 5.5, beat: 0.15,
+    boss: { name: "MOON CRAB KING", hp: 24, bubbles: 4, calm: 1.35, angry: 0.9, cols: ["#2fa9c9", "#8fe6f2", "#1c6f96", "#082a44"] },
+    scenery: { palms: [2, 26, 45, 64, 96, 117, 127], umbrellas: [6, 62, 103, 134], boards: [9, 55, 84, 114, 146] },
+    look: {
+      sky: ["#070b24", "#0b1233", "#101a45", "#162457", "#1e3069", "#2a407c"], sea: ["#2a6f9e", "#2f86b8", "#5aa6cf"],
+      sun: { x: 236, y: 38, r: 12, core: "#f4f1d0", edge: "#d8d6b0", moon: true }, clouds: 0.16, stars: true, tint: "rgba(10,20,70,0.5)",
+      ink: "#ffffff", halo: "#14234f",
+    },
+  },
+];
+const isPit = (L, c, n = 1) => L.pits.some(([a, z]) => c <= z && c + n - 1 >= a);
+function buildLevel(L) {
   const g = Array.from({ length: ROWS }, () => Array(COLS).fill(" ")), props = [];
-  for (let x = 0; x < COLS; x++) if (!PITS.some(([a, b]) => x >= a && x <= b)) for (let y = GY; y < ROWS; y++) g[y][x] = "#";
-  const castle = (x, n) => props.push({ x, y: GY, n, kind: "castle" }); // decoration on the sand, nothing to climb
+  for (let x = 0; x < COLS; x++) if (!isPit(L, x)) for (let y = GY; y < ROWS; y++) g[y][x] = "#";
+  for (const [x, n] of L.castles) props.push({ x, y: GY, n, kind: "castle" }); // decoration on the sand, nothing to climb
   // things you find on a beach that you can stand on: benches, a lifeguard tower, umbrellas, tiki roofs, an ice-cream kiosk
-  const pier = (x, y, n, kind) => { for (let i = 0; i < n; i++) g[y][x + i] = "="; props.push({ x, y, n, kind }); };
-  castle(15, 2);
-  pier(20, 9, 5, "tower");
-  castle(36, 2);
-  pier(30, 11, 3, "bench"); pier(40, 11, 3, "bench"); pier(44, 8, 4, "umbrella"); pier(50, 9, 4, "tiki"); pier(57, 11, 3, "bench");
-  castle(72, 3);
-  pier(78, 9, 5, "kiosk"); pier(84, 7, 4, "umbrella2"); pier(89, 11, 3, "bench");
-  castle(96, 2);
-  pier(101, 9, 3, "tiki"); pier(107, 11, 3, "bench");
-  castle(116, 1); castle(122, 2);
+  for (const [x, y, n, kind] of L.platforms) { for (let i = 0; i < n; i++) g[y][x + i] = "="; props.push({ x, y, n, kind }); }
   g.props = props;
   return g;
 }
 const crab = (x, hidden) => ({ type: "crab", alive: true, x, y: GROUND - 42, w: 60, h: 42, vx: 0, vy: 0, hp: 1, mode: hidden ? "hidden" : "rise", t: 0, ground: true });
+// What the next run starts with: the next level after a clear, the same level again after a Game over,
+// the first level after the last one.
+function nextStart(old) {
+  if (old && old.fresh && old.start) return old.start; // reset twice before playing: same start
+  if (old && old.start && old.won && old.level < LEVELS.length - 1)
+    return { level: old.level + 1, score: old.score, lives: Math.min(3, old.lives + 1), shells: old.shells, weapon: old.weapon, best: old.best, prevBest: old.prevBest };
+  const best = old ? Math.max(old.best, old.score) : 0;
+  return { level: old && old.start && old.over ? old.level : 0, score: 0, lives: 3, shells: 0, weapon: "disc", best, prevBest: best };
+}
 function reset(round) {
-  const old = self.__fb, best = old ? Math.max(old.best, old.score) : 0;
+  const old = self.__fb, start = nextStart(old), L = LEVELS[start.level];
   const S = (self.__fb = {
-    round, fresh: true, g: buildLevel(), best, prevBest: best, anim: old ? old.anim : 0, t: p.t,
+    round, fresh: true, start, level: start.level, g: buildLevel(L), best: start.best, prevBest: start.prevBest, anim: old ? old.anim : 0, t: p.t,
     x: 4 * T, y: GROUND - 90, w: 42, h: 90, vx: 0, vy: 0, ground: true, coyote: 0, buffer: 0, fbuf: 0, cool: 0, face: 1, crouch: false,
-    shells: 0, boost: 0, lives: 3, shirt: true, score: 0, time: LEVEL_TIME, clock: 0, lifeT: 0, invuln: 0, dead: 0, pitDeath: false, over: false, won: false, endAge: 0, bonus: 0,
-    check: 4 * T, weapon: "disc", shots: [], bubbles: [], enemies: [], items: [], fx: [], spawn: 3, gullT: 8,
+    shells: start.shells, boost: 0, lives: start.lives, shirt: true, score: start.score, time: LEVEL_TIME, clock: 0, lifeT: 0, invuln: 0, dead: 0, pitDeath: false, over: false, won: false, endAge: 0, bonus: 0,
+    check: 4 * T, weapon: start.weapon, shots: [], bubbles: [], enemies: [], items: [], fx: [], spawn: 3, gullT: 8,
     camX: 0, lock: false, boss: null, walk: 0, throwT: 0, shake: 0, beat: -1, maxX: 4 * T,
     lastJump: IN.jumpCount || 0, lastFire: IN.fireCount || 0,
-    gulls: [28, 46, 68, 84, 100, 114].map((c) => ({ c, done: false })),
+    gulls: L.gulls.map((c) => ({ c, done: false })),
   });
-  for (const c of [11, 26, 41, 48, 63, 76, 82, 99, 112, 119]) S.enemies.push(crab(c * T, true));
-  for (const [a, b] of PITS) S.enemies.push({ type: "fish", alive: true, under: true, x: ((a + b + 1) / 2) * T - 27, y: GROUND + 200, w: 54, h: 30, vx: 0, vy: 0, hp: 1, t: 0.8 + Math.random() * 1.5, minX: a * T + 4, maxX: (b + 1) * T - 58, respawn: 0 });
+  for (const c of L.crabs) S.enemies.push(crab(c * T, true));
+  for (const [a, b] of L.pits) S.enemies.push({ type: "fish", alive: true, under: true, x: ((a + b + 1) / 2) * T - 27, y: GROUND + 200, w: 54, h: 30, vx: 0, vy: 0, hp: 1, t: 0.8 + Math.random() * 1.5, minX: a * T + 4, maxX: (b + 1) * T - 58, respawn: 0 });
   const box = (c, row, kind) => S.items.push({ type: "weapon", kind, x: c * T + 9, y: row * T - 60, w: 54, h: 54, vy: 0, t: 0, fixed: true });
-  box(22, 9, "ball"); box(85, 7, "gold"); box(102, 9, "disc");
-  for (const [c, row] of [[16, 12], [21, 9], [24, 9], [45, 8], [47, 8], [51, 9], [73, 12], [79, 9], [87, 7], [97, 12], [123, 12]]) S.items.push({ type: "shell", x: c * T + 15, y: row * T - 52, w: 42, h: 36, vy: 0, t: 0, fixed: true });
+  for (const [c, row, kind] of L.boxes) box(c, row, kind);
+  for (const [c, row] of L.shells) S.items.push({ type: "shell", x: c * T + 15, y: row * T - 52, w: 42, h: 36, vy: 0, t: 0, fixed: true });
 }
 // A start / restart press bumps "round". It resets the game only before the first run, or after a
 // run has ended and its result screen has finished showing, so a stray key never restarts mid-game.
 const R = IN.round || 0;
-if (!self.__fb || !self.__fb.g.props) reset(R); // (also when an older version of the level is still in memory)
+if (!self.__fb || !self.__fb.start) reset(R); // (also when an older version of the level is still in memory)
 else if (R !== self.__fb.round) {
   const F = self.__fb, ended = F.over || F.won, onResult = (tt >= WIN0 && tt < WINW) || (tt >= LOST0 && tt < LOSTW);
   if (F.fresh || (ended && !onResult && F.endAge > 0.5)) reset(R); else F.round = R;
 }
-const S = self.__fb;
+const S = self.__fb, L = LEVELS[S.level], LAST = S.level === LEVELS.length - 1;
 let dt = p.t - S.t; S.t = p.t; if (!(dt > 0) || dt > 0.05) dt = dt > 0 ? 0.05 : 0;
 S.anim += dt;
 if (running && S.fresh) { S.fresh = false; p.emit("go"); }
@@ -215,16 +276,16 @@ if (dt > 0 && running && !S.over && !S.won) {
     if (!S.lock && S.lifeT > 5) {
       S.spawn -= dt;
       if (S.spawn <= 0) {
-        S.spawn = 5.4 - 2.2 * prog + Math.random();
+        S.spawn = (5.4 - 2.2 * prog + Math.random()) * L.spawnMul;
         const live = S.enemies.filter((e) => e.alive && e.type === "crab" && e.mode !== "hidden").length;
-        if (live < 2 + Math.round(prog * 2)) for (let k = 0; k < 6; k++) {
+        if (live < 2 + L.extraCrabs + Math.round(prog * 2)) for (let k = 0; k < 6; k++) {
           const side = Math.random() < 0.65 ? 1 : -1, c = Math.floor((hx + side * (5 + Math.random() * 5) * T) / T);
           if (c * T < S.camX + T || c * T > S.camX + VW - 2 * T) continue; // on screen, so you see it rise
           if (cell(c, GY) === "#" && cell(c + 1, GY) === "#" && cell(c, GY - 1) === " " && cell(c + 1, GY - 1) === " ") { const e = crab(c * T + 6, false); e.spawned = true; S.enemies.push(e); p.emit("rise"); break; }
         }
       }
       for (const w of S.gulls) if (!w.done && S.x > w.c * T - VW * 0.25) { w.done = true; spawnGull(); }
-      if (prog > 0.45) { S.gullT -= dt; if (S.gullT <= 0) { S.gullT = 7 + Math.random() * 3; spawnGull(); } }
+      if (prog > L.gullFrom) { S.gullT -= dt; if (S.gullT <= 0) { S.gullT = L.gullEvery + Math.random() * 3; spawnGull(); } }
     }
     // enemies
     const edt = dt * (1 + 0.4 * prog + 0.2 * Math.min(1, S.clock / 90));   // faster the further and longer you go
@@ -233,7 +294,7 @@ if (dt > 0 && running && !S.over && !S.won) {
       if (!e.alive) continue;
       if (e.type === "crab") {
         if (e.mode === "hidden") { if (S.lifeT > 4 && Math.abs(e.x - S.x) < 8.5 * T) { e.mode = "rise"; e.t = 0; p.emit("rise"); } continue; }
-        if (e.mode === "rise") { e.t += edt; if (e.t > 0.5) { e.mode = "walk"; e.t = 0; e.vx = (hx > e.x + e.w / 2 ? 1 : -1) * (130 + 60 * prog); } continue; }
+        if (e.mode === "rise") { e.t += edt; if (e.t > 0.5) { e.mode = "walk"; e.t = 0; e.vx = (hx > e.x + e.w / 2 ? 1 : -1) * (130 + 60 * prog) * L.crabSpeed; } continue; }
         e.vy = Math.min(1700, e.vy + G * edt);
         if (moveX(e)) e.vx = -e.vx;
         moveY(e);
@@ -262,7 +323,7 @@ if (dt > 0 && running && !S.over && !S.won) {
       if (harmful && hit(S, e, 10)) { if (S.boost > 0 && e.type !== "boss") damage(e, 99); else hurt(); }
     }
     // boss: the Giant Crab, in an arena where the camera stops
-    if (S.lock && !S.boss) S.boss = { type: "boss", alive: true, x: (COLS - 6) * T, y: GROUND - 112, w: 168, h: 112, vx: 0, vy: 0, hp: 14, maxHp: 14, t: 1.6, flash: 0, ground: true, dying: 0 };
+    if (S.lock && !S.boss) S.boss = { type: "boss", alive: true, x: (COLS - 6) * T, y: GROUND - 112, w: 168, h: 112, vx: 0, vy: 0, hp: L.boss.hp, maxHp: L.boss.hp, t: 1.6, flash: 0, ground: true, dying: 0 };
     const B = S.boss;
     if (B && B.alive) {
       B.vy = Math.min(1700, B.vy + G * dt); B.flash -= dt;
@@ -277,8 +338,8 @@ if (dt > 0 && running && !S.over && !S.won) {
         const over = hx - side * 3.5 * T;
         if (gap < 3.2 * T) hop(over >= lo && over <= hi ? over : hx + side * 4.5 * T); // too close: jump over you, or back off if there is no room
         else if (Math.random() < 0.4) hop(hx + side * 2.2 * T);
-        else { for (const k of [0, 1, 2]) S.bubbles.push({ x: bc - 18, y: B.y + 6, w: 36, h: 36, vx: bd * (220 + k * 170), vy: -760 - k * 80, t: 0 }); p.emit("boss-shoot"); }
-        B.t = (B.hp < 7 ? 1.2 : 1.7) + Math.random() * 0.7;
+        else { for (let k = 0; k < L.boss.bubbles; k++) S.bubbles.push({ x: bc - 18, y: B.y + 6, w: 36, h: 36, vx: bd * (220 + k * 170), vy: -760 - k * 80, t: 0 }); p.emit("boss-shoot"); }
+        B.t = (B.hp < B.maxHp / 2 ? L.boss.angry : L.boss.calm) + Math.random() * 0.7;
       }
       B.x = clamp(B.x + B.vx * dt, S.camX + 30, COLS * T - B.w - 30);
       moveY(B);
@@ -335,7 +396,7 @@ if (dt > 0 && running && !S.over && !S.won) {
         if (it.type === "shell") {
           score(100, cx, it.y); p.emit("pickup"); burst(cx, it.y + 18, ["#ffd1dc", "#ffffff"], 6, 160);
           // every 5 shells a scooter turns up a little way ahead
-          if (++S.shells % 5 === 0 && S.x < (ARENA - 8) * T) { S.items.push({ type: "scooter", x: S.x + 10 * T, y: GROUND - 62, w: 66, h: 62, vy: 0, t: 0, fixed: true }); pop(S.x + S.w / 2, S.y - 10, "SCOOTER AHEAD!", "#7bf0e6"); }
+          if (++S.shells % 5 === 0 && S.x < (ARENA - 8) * T) { let sx = S.x + 10 * T; while (isPit(L, Math.floor(sx / T), 2)) sx += T; S.items.push({ type: "scooter", x: sx, y: GROUND - 62, w: 66, h: 62, vy: 0, t: 0, fixed: true }); pop(S.x + S.w / 2, S.y - 10, "SCOOTER AHEAD!", "#7bf0e6"); }
         }
         else if (it.type === "scooter") { S.boost = 9; score(300, cx, it.y); pop(cx, it.y - 6, "SCOOTER!", "#7bf0e6"); p.emit("weapon"); burst(cx, it.y + 30, ["#7bf0e6", "#ff7eab", "#ffffff"], 10, 220); }
         else if (it.type === "shirt") { if (S.shirt) score(500, cx, it.y); else { S.shirt = true; pop(cx, it.y, "SHIRT ON!", "#ffe66d"); } p.emit("shirt"); }
@@ -345,7 +406,7 @@ if (dt > 0 && running && !S.over && !S.won) {
     S.items = S.items.filter((it) => !it.dead);
     S.enemies = S.enemies.filter((e) => e.alive || e.type === "fish");
     // music follows game time; it stops while you are knocked out and on the end screens
-    const step = Math.floor(S.clock / 0.17);
+    const step = Math.floor(S.clock / L.beat);
     if (step !== S.beat) { S.beat = step; const i = step % 32; if (MEL[i] !== null) p.emit("m" + i); if (i % 4 === 0) p.emit("b" + i / 4); }
   }
 }
@@ -360,7 +421,7 @@ S.shake = Math.max(0, S.shake - dt);
 
 // ---------- draw: pixel art in a 320×180 buffer, scaled up 6× with smoothing off ----------
 const at = S.anim;
-if (!self.__fbpx || self.__fbpx.v !== 5) {
+if (!self.__fbpx || self.__fbpx.v !== 6) {
   const mk = (w, h, fn, outline) => {
     const c = new OffscreenCanvas(w, h), x2 = c.getContext("2d"), grid = [];
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) grid.push(fn(x, y) || null);
@@ -396,8 +457,8 @@ if (!self.__fbpx || self.__fbpx.v !== 5) {
   const GULL = { w: "#ffffff", k: "#1b1b2f", o: "#ffb02e", g: "#9aa7b8" };
   const FISH = { b: "#2f8fd8", B: "#8fd3ff", k: "#1b1b2f", t: "#1f6fb0" };
   const heart = [".hh.hh.", "hHhhhhh", "hhhhhhh", ".hhhhh.", "..hhh..", "...h..."];
-  const boss = (flash) => mk(32, 22, (x, y) => {
-    const C = flash ? ["#ffffff", "#ffe3dc", "#ffd0c4"] : ["#e8483f", "#ff8a6a", "#b8322b"];
+  const boss = (cols, flash) => mk(32, 22, (x, y) => {
+    const C = flash ? ["#ffffff", "#ffe3dc", "#ffd0c4"] : cols;
     const body = ((x + 0.5 - 16) / 11) ** 2 + ((y + 0.5 - 14) / 6.5) ** 2 <= 1;
     const clawL = disc([[4, 7, 3.6]], x, y) && !(x >= 3 && x <= 5 && y <= 5), clawR = disc([[28, 7, 3.6]], x, y) && !(x >= 27 && x <= 29 && y <= 5);
     const arm = (y >= 9 && y <= 10 && (x === 6 || x === 7 || x === 25 || x === 26)) || (y === 11 && (x === 7 || x === 8 || x === 24 || x === 25));
@@ -409,7 +470,7 @@ if (!self.__fbpx || self.__fbpx.v !== 5) {
     if (clawL || clawR) return y < 6 ? C[1] : C[0];
     if (arm || stalk || legsOn) return C[2];
     return null;
-  }, "#4a0f0f");
+  }, cols[3]);
   const ballSpr = (rot) => mk(6, 6, (x, y) => {
     const dx = x + 0.5 - 3, dy = y + 0.5 - 3;
     if (dx * dx + dy * dy > 9) return null;
@@ -419,14 +480,14 @@ if (!self.__fbpx || self.__fbpx.v !== 5) {
   const discSpr = (a, b) => [art([".aaaaaa.", "abbaabba", ".aaaaaa."], { a, b }, "#1b1b2f"), art([".aaaaaa.", "aabbaabb", ".aaaaaa."], { a, b }, "#1b1b2f")];
   const buf = new OffscreenCanvas(LW, LH);
   self.__fbpx = {
-    v: 5, buf, b: buf.getContext("2d"),
+    v: 6, buf, b: buf.getContext("2d"),
     s: {
       hero: heroSet(true), bare: heroSet(false),
       crab: [art([...crabTop, ".l.l....l.l."], CRAB, "#5a1212"), art([...crabTop, ".l..l..l..l."], CRAB, "#5a1212")],
       gull: [art(["kw..........wk", ".ww........ww.", "..www....www..", "...wwwwwwww...", "ookwwwwwwwwgg.", "....wwwwww...."], GULL, "#4a5568"),
         art(["..............", "...wwwwwwww...", "ookwwwwwwwwgg.", "..www.wwww.www", ".ww.......ww..", "kw.........wk."], GULL, "#4a5568")],
       fish: art(["...bbbb..t", ".bbBBBBbtt", "bkbBBBBbbt", ".bbbbbbbtt", "...bbbb..t"], FISH, "#123a6a"),
-      boss: boss(false), bossFlash: boss(true),
+      boss: LEVELS.map((l) => boss(l.boss.cols, false)), bossFlash: LEVELS.map((l) => boss(l.boss.cols, true)),
       disc: discSpr("#e8483f", "#ffffff"), gold: discSpr("#ffc93c", "#fff4c2"),
       ball: [0, 1, 2, 3].map((i) => ballSpr((i * Math.PI) / 8)),
       shell: art(["..ppp..", ".pPpPp.", "pPpPpPp", "pPpPpPp", ".ppppp.", "..ppp.."], { p: "#ffb3c6", P: "#ffe3ea" }, "#9c4d6a"),
@@ -501,7 +562,7 @@ const FONT = {
   W: "10001|10001|10101|11011|10001", X: "101|101|010|101|101", Y: "101|101|010|010|010", Z: "111|001|010|100|111",
   0: "111|101|101|101|111", 1: "010|110|010|010|111", 2: "110|001|010|100|111", 3: "110|001|010|001|110", 4: "101|101|111|001|001",
   5: "111|100|110|001|110", 6: "011|100|111|101|111", 7: "111|001|010|010|010", 8: "111|101|111|101|111", 9: "111|101|111|001|110",
-  "/": "001|001|010|100|100", ":": "0|1|0|1|0", "!": "1|1|1|0|1", ".": "0|0|0|0|1", "-": "000|000|111|000|000", "+": "000|010|111|010|000", "'": "1|1|0|0|0",
+  "/": "001|001|010|100|100", ":": "0|1|0|1|0", "!": "1|1|1|0|1", ".": "0|0|0|0|1", "-": "000|000|111|000|000", "+": "000|010|111|010|000", "'": "1|1|0|0|0", "%": "101|001|010|100|101",
 };
 const glyph = (ch) => (FONT[ch] || FONT[" "]).split("|");
 const txtW = (str, sc) => [...String(str).toUpperCase()].reduce((a, ch) => a + (glyph(ch)[0].length + 1) * sc, 0) - sc;
@@ -526,14 +587,9 @@ const panel = (x, y, w, h, fill = "rgba(20,35,79,0.7)", edge = "rgba(255,255,255
 const shk = S.shake > 0 ? Math.round(Math.sin(at * 90) * S.shake * 5) : 0;
 const camL = Math.round(S.camX / P) + shk, GYL = GY * TL;
 
-// sky in flat bands, sun, pixel clouds, an island with a lighthouse, the sea (parallax)
-const SKY = ["#7fcff6", "#86d2f7", "#8fd6f8", "#99daf8", "#a4def9", "#b0e3fa"], YB = [0, 30, 52, 70, 86, 100, 112];
-for (let i = 0; i < SKY.length; i++) { b.fillStyle = SKY[i]; b.fillRect(0, YB[i], LW, YB[i + 1] - YB[i]); }
-{
-  const sx = 236 - Math.round(camL * 0.01), sy = 36;
-  for (let dy = -15; dy <= 15; dy++) for (let dx = -15; dx <= 15; dx++) { const d = dx * dx + dy * dy; if (d <= 225) { b.fillStyle = d > 190 ? "#ffe27a" : "#ffd54f"; b.fillRect(sx + dx, sy + dy, 1, 1); } }
-}
-for (let i = 0; i < 6; i++) { const span = LW + 90; put(s.cloud, ((((i * 83 + 20 - camL * 0.12 - at * 2) % span) + span) % span) - 45, 14 + (i % 3) * 14 + (i % 2) * 4); }
+// scenery goes into the cleared buffer first, so a level can tint it; the sky is painted behind it afterwards
+const look = L.look;
+b.clearRect(0, 0, LW, LH);
 {
   const ix = 150 - Math.round(camL * 0.05);
   for (let x = 0; x < 170; x++) {
@@ -546,9 +602,9 @@ for (let i = 0; i < 6; i++) { const span = LW + 90; put(s.cloud, ((((i * 83 + 20
   b.fillStyle = "#14234f"; b.fillRect(lx + 2, ly - 10, 2, 3); b.fillStyle = "#e8483f"; b.fillRect(lx - 1, ly - 16, 8, 2); b.fillRect(lx + 1, ly - 19, 4, 3);
   b.fillStyle = "#1b1b2f"; b.fillRect(lx + 3, ly - 26, 1, 7); b.fillStyle = "#ef5a4c"; b.fillRect(lx + 4, ly - 26, 4, 3);
 }
-b.fillStyle = "#2a95c8"; b.fillRect(0, 112, LW, 2);
-b.fillStyle = "#3ab0dc"; b.fillRect(0, 114, LW, GYL - 114);
-b.fillStyle = "#57c2e6"; b.fillRect(0, 124, LW, 2); b.fillRect(0, 134, LW, 1);
+b.fillStyle = look.sea[0]; b.fillRect(0, 112, LW, 2);
+b.fillStyle = look.sea[1]; b.fillRect(0, 114, LW, GYL - 114);
+b.fillStyle = look.sea[2]; b.fillRect(0, 124, LW, 2); b.fillRect(0, 134, LW, 1);
 b.fillStyle = "#ffffff";
 for (let i = 0; i < 40; i++) { const span = LW + 10, sx = ((((i * 53 - camL * 0.35 + Math.floor(at * 6) * (i % 3)) % span) + span) % span) - 5, sy = 116 + ((i * 7) % 26); if ((i + Math.floor(at * 3)) % 4) b.fillRect(sx, sy, (i % 3) + 1, 1); }
 put(s.boat, ((((260 - camL * 0.22 + at * 3) % (LW + 40)) + LW + 40) % (LW + 40)) - 20, 112);
@@ -557,9 +613,10 @@ put(s.boat, ((((260 - camL * 0.22 + at * 3) % (LW + 40)) + LW + 40) % (LW + 40))
 b.save(); b.translate(-camL, 0);
 const c0 = Math.max(0, Math.floor(camL / TL) - 3), c1 = Math.min(COLS - 1, Math.ceil((camL + LW) / TL) + 3);
 const vis = (c) => c >= c0 - 2 && c <= c1 + 2;
-for (const c of [2, 18, 47, 69, 93, 118, 127]) if (vis(c)) put(s.palm, c * TL - 10, GYL - 44);
-for (const c of [6, 63, 104, 134]) if (vis(c)) { put(s.umbrella, c * TL - 8, GYL - 30); put(s.chair, c * TL - 14, GYL - 8); }
-for (const c of [12, 53, 82, 113, 146]) if (vis(c)) put(s.board, c * TL, GYL - 27);
+const dry = (c, n) => vis(c) && !isPit(L, c, n); // nothing stands in the water
+for (const c of L.scenery.palms) if (dry(c - 1, 3)) put(s.palm, c * TL - 10, GYL - 44);
+for (const c of L.scenery.umbrellas) if (dry(c - 2, 4)) { put(s.umbrella, c * TL - 8, GYL - 30); put(s.chair, c * TL - 14, GYL - 8); }
+for (const c of L.scenery.boards) if (dry(c, 1)) put(s.board, c * TL, GYL - 27);
 if (vis(151)) put(s.tower, 151 * TL, GYL - 40);
 // beach props you can stand on (drawn over the sand, under the player): each sits on a one-way platform row
 for (const pr of S.g.props) {
@@ -610,13 +667,20 @@ for (let cy = 0; cy < ROWS; cy++) for (let cx = c0; cx <= c1; cx++) {
 }
 for (const c of [3, 9, 14, 24, 34, 44, 52, 61, 70, 79, 86, 95, 103, 111, 120, 126, 137, 143, 149]) if (vis(c) && cell(c, GY) === "#" && cell(c, GY - 1) === " ") put(s.tuft, c * TL + 3, GYL - 3);
 // water in the gaps
-for (const [a, bb] of PITS) {
+for (const [a, bb] of L.pits) {
   if (!vis(a) && !vis(bb)) continue;
   const x0 = a * TL, x1 = (bb + 1) * TL;
   b.fillStyle = "#2f9fd0"; b.fillRect(x0, GYL + 4, x1 - x0, LH - GYL - 4);
   b.fillStyle = "#1f7fb0"; b.fillRect(x0, GYL + 16, x1 - x0, LH - GYL - 16);
   for (let x = x0; x < x1; x++) { const yy = GYL + 3 + Math.round(Math.sin(x * 0.5 + at * 5)); b.fillStyle = "#8fdcf6"; b.fillRect(x, yy, 1, 2); if ((x + Math.floor(at * 8)) % 9 === 0) { b.fillStyle = "#ffffff"; b.fillRect(x, yy - 1, 1, 1); } }
   b.fillStyle = "#c98f55"; b.fillRect(x0, GYL + 2, 1, LH - GYL); b.fillRect(x1 - 1, GYL + 2, 1, LH - GYL);
+}
+// evening and night light on everything drawn so far (the player, enemies and pickups stay bright)
+if (look.tint) { b.globalCompositeOperation = "source-atop"; b.fillStyle = look.tint; b.fillRect(camL - 8, 0, LW + 16, LH); b.globalCompositeOperation = "source-over"; }
+if (look.stars) { // the lighthouse is lit
+  const lx = camL + 150 - Math.round(camL * 0.05) + 97;
+  b.fillStyle = "#ffe27a"; b.fillRect(lx + 1, 63, 4, 3);
+  for (let i = 1; i <= 22; i++) { b.fillStyle = "rgba(255,236,160," + (0.55 * (1 - i / 23)).toFixed(2) + ")"; b.fillRect(Math.sin(at * 1.2) > 0 ? lx + 4 + i : lx + 1 - i, 63 - Math.floor(i / 12), 1, 3 + Math.floor(i / 8)); }
 }
 // items
 for (const it of S.items) {
@@ -648,7 +712,7 @@ for (const e of S.enemies) {
 {
   const B = S.boss;
   if (B && (B.alive || B.dying > 0)) {
-    const bx = Math.round(B.x / P) - 2, by = Math.round(B.y / P) - 3, img = B.flash > 0 || (B.dying > 0 && Math.floor(B.dying * 12) % 2) ? s.bossFlash : s.boss;
+    const bx = Math.round(B.x / P) - 2, by = Math.round(B.y / P) - 3, img = B.flash > 0 || (B.dying > 0 && Math.floor(B.dying * 12) % 2) ? s.bossFlash[S.level] : s.boss[S.level];
     if (B.dying > 0) { b.globalAlpha = Math.min(1, B.dying); put(img, bx, by + Math.round((1.8 - B.dying) * 6)); b.globalAlpha = 1; }
     else put(img, bx, by + (B.ground ? Math.round(Math.sin(at * 10)) : 0));
   }
@@ -681,26 +745,51 @@ for (const f of S.fx) {
 b.globalAlpha = 1;
 b.restore();
 
+// sky, painted behind everything: nearest first (clouds, stars, sun or moon, flat colour bands)
+{
+  b.globalCompositeOperation = "destination-over";
+  b.globalAlpha = look.clouds;
+  for (let i = 0; i < 6; i++) { const span = LW + 90; put(s.cloud, ((((i * 83 + 20 - camL * 0.12 - at * 2) % span) + span) % span) - 45, 14 + (i % 3) * 14 + (i % 2) * 4); }
+  b.globalAlpha = 1;
+  if (look.stars) for (let i = 0; i < 70; i++) { if ((i + Math.floor(at * 2)) % 11 === 0) continue; b.fillStyle = i % 5 ? "#aebbe6" : "#ffffff"; b.fillRect((i * 97 + 13) % LW, (i * 41 + 7) % 96, 1, 1); }
+  const sun = look.sun, sx = sun.x - Math.round(camL * 0.01), sy = sun.y, r = sun.r;
+  if (sun.moon) { b.fillStyle = "#c4c19c"; for (const [cx, cy, w] of [[-5, -3, 3], [2, 3, 4], [4, -5, 2]]) b.fillRect(sx + cx, sy + cy, w, 2); }
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const d = dx * dx + dy * dy; if (d <= r * r) { b.fillStyle = d > r * r - 2 * r - 5 ? sun.edge : sun.core; b.fillRect(sx + dx, sy + dy, 1, 1); } }
+  const YB = [0, 30, 52, 70, 86, 100, LH];
+  for (let i = 0; i < look.sky.length; i++) { b.fillStyle = look.sky[i]; b.fillRect(0, YB[i], LW, YB[i + 1] - YB[i]); }
+  b.globalCompositeOperation = "source-over";
+}
+
 // ---------- HUD (score, time, hearts, the weapon box: like the concept art) ----------
 const inTitle = tt < PLAY0, secs = Math.ceil(S.time), clock = Math.floor(secs / 60) + ":" + String(secs % 60).padStart(2, "0");
 if (!inTitle) {
-  txt("1P", 8, 5, 2, "#ef4b42", "l", "rgba(255,255,255,0.65)"); txt(String(S.score).padStart(6, "0"), 8, 18, 2, "#14234f", "l", "rgba(255,255,255,0.65)");
-  txt("TIME", 112, 5, 2, "#ef4b42", "l", "rgba(255,255,255,0.65)");
-  txt(clock, 112, 18, 2, S.time < 20 && Math.floor(at * 4) % 2 ? "#ef4b42" : "#14234f", "l", "rgba(255,255,255,0.65)");
-  txt("HI", 182, 5, 1, "#ef4b42", "l", "rgba(255,255,255,0.65)"); txt(String(Math.max(S.best, S.score)).padStart(6, "0"), 182, 12, 1, "#14234f", "l", "rgba(255,255,255,0.65)");
+  txt("1P", 8, 5, 2, "#ef4b42", "l", look.halo); txt(String(S.score).padStart(6, "0"), 8, 18, 2, look.ink, "l", look.halo);
+  txt("TIME", 112, 5, 2, "#ef4b42", "l", look.halo);
+  txt(clock, 112, 18, 2, S.time < 20 && Math.floor(at * 4) % 2 ? "#ef4b42" : look.ink, "l", look.halo);
+  txt("HI", 182, 5, 1, "#ef4b42", "l", look.halo); txt(String(Math.max(S.best, S.score)).padStart(6, "0"), 182, 12, 1, look.ink, "l", look.halo);
+  txt("LEVEL", 232, 5, 1, "#ef4b42", "l", look.halo); txt(S.level + 1 + "/" + LEVELS.length, 232, 12, 1, look.ink, "l", look.halo);
   for (let i = 0; i < 3; i++) put(i < S.lives ? s.heart : s.heartOff, LW - 12 - (2 - i) * 11, 6);
-  put(s.shell, 8, 30); txt("X" + S.shells, 20, 32, 1, "#14234f", "l", "rgba(255,255,255,0.65)");
+  put(s.shell, 8, 30); txt("X" + S.shells, 20, 32, 1, look.ink, "l", look.halo);
   if (S.boost > 0) { b.fillStyle = "#14234f"; b.fillRect(LW - 45, 19, 34, 5); b.fillStyle = "#2fd0c9"; b.fillRect(LW - 44, 20, Math.round(32 * S.boost / 9), 3); b.fillStyle = "#7bf0e6"; b.fillRect(LW - 44, 20, Math.round(32 * S.boost / 9), 1); }
   const bx = Math.round(LW / 2 - 10), byy = LH - 24;
   b.fillStyle = "rgba(20,35,79,0.25)"; b.fillRect(bx + 3, byy + 19, 14, 2); // the weapon you carry, on the sand: no frame
   const ic = S.weapon === "ball" ? s.ball[Math.floor(at * 3) % 4] : s[S.weapon][0];
   put(ic, bx + 10 - ic.width / 2, byy + 10 - ic.height / 2);
   if (S.boss && (S.boss.alive || S.boss.dying > 0)) {
-    txt("GIANT CRAB", LW / 2, 32, 1, "#ffffff", "c", "#14234f");
+    txt(L.boss.name, LW / 2, 32, 1, "#ffffff", "c", "#14234f");
     b.fillStyle = "#14234f"; b.fillRect(LW / 2 - 41, 39, 82, 6);
     b.fillStyle = "#ef4b42"; b.fillRect(LW / 2 - 40, 40, Math.round(80 * Math.max(0, S.boss.hp) / S.boss.maxHp), 4);
     b.fillStyle = "#ff8a6a"; b.fillRect(LW / 2 - 40, 40, Math.round(80 * Math.max(0, S.boss.hp) / S.boss.maxHp), 1);
   }
+}
+
+// the level's name as it begins
+if (running && !S.over && !S.won && S.clock < 2.4) {
+  b.globalAlpha = Math.min(1, (2.4 - S.clock) / 0.4);
+  panel(LW / 2 - 52, 46, 104, 28);
+  txt("LEVEL " + (S.level + 1), LW / 2, 50, 2, "#ffd54f", "c", "#14234f");
+  txt(L.name, LW / 2, 64, 1, "#ffffff", "c", "#14234f");
+  b.globalAlpha = 1;
 }
 
 // ---------- title + end screens (they follow the state machine's timeline) ----------
@@ -728,8 +817,9 @@ const endScreen = (t0, dim, title, stats, extra, label) => {
   if (lt > 0.6) { const k = Math.min(1, (lt - 0.6) / 0.25); btn(128, 110 + Math.round((1 - k) * (1 - k) * 12) - (Math.sin(at * 5) > 0.6 ? 1 : 0), 64, 16, label); if (lt > 0.85) txt("OR PRESS SPACE", LW / 2, 132, 1, "#ffffff", "c", "#14234f"); }
 };
 const best = S.score > S.prevBest && S.score > 0 ? "NEW HIGH SCORE!" : "HIGH SCORE " + String(Math.max(S.best, S.score)).padStart(6, "0");
-if (tt >= WIN0 && tt < LOST0) endScreen(WIN0, "#06324a", "BEACH CLEAR!", "SCORE " + String(S.score).padStart(6, "0") + " - TIME BONUS " + S.bonus, best, "PLAY AGAIN");
-if (tt >= LOST0) endScreen(LOST0, "#2a0b14", "GAME OVER", "SCORE " + String(S.score).padStart(6, "0") + " - REACHED " + Math.round(clamp(S.maxX / (ARENA * T), 0, 1) * 100) + "%", best, "TRY AGAIN");
+const total = "SCORE " + String(S.score).padStart(6, "0");
+if (tt >= WIN0 && tt < LOST0) endScreen(WIN0, "#06324a", LAST ? "ALL CLEAR!" : "LEVEL " + (S.level + 1) + " CLEAR!", total + " - TIME BONUS " + S.bonus, LAST ? best : "NEXT: " + LEVELS[S.level + 1].name, LAST ? "PLAY AGAIN" : "NEXT LEVEL");
+if (tt >= LOST0) endScreen(LOST0, "#2a0b14", "GAME OVER", total + " - LEVEL " + (S.level + 1) + " - REACHED " + Math.round(clamp(S.maxX / (ARENA * T), 0, 1) * 100) + "%", best, S.level ? "CONTINUE" : "TRY AGAIN");
 
 // scale the art up 6×, nearest-neighbour
 ctx.translate(-VW / 2, -VH / 2);
