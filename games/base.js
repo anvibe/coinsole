@@ -73,6 +73,8 @@ function saveBest(v) { try { if (v > best()) localStorage.setItem("coinsole." + 
 
 // ---- main loop ----
 function start() {
+  const old = +new URLSearchParams(location.hash.slice(1)).get("best");   // a score from before games had their own storage
+  if (old) saveBest(old);
   let last = performance.now();
   function frame(t) {
     const dt = Math.min(0.05, (t - last) / 1000); last = t; T += dt;

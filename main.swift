@@ -15,6 +15,7 @@
 // A cover image is optional: "<game name>.png/.jpg" next to it in Games/, or "cover.png/.jpg" inside
 // its folder. Without one, a .app shows its own icon.
 import Cocoa
+import CryptoKit
 import GameController
 import UniformTypeIdentifiers
 import WebKit
@@ -99,15 +100,18 @@ func launcher(in dir: URL) -> URL? {
 
 /// Optional details shown on the Game info card.
 func infoFor(id: String, name: String) -> [String: Any]? {
-    for u in [gamesDir.appendingPathComponent(name + ".json"), gamesDir.appendingPathComponent(id).appendingPathComponent("info.json")] {
+    let folder = gamesDir.appendingPathComponent(id)
+    for u in [gamesDir.appendingPathComponent(name + ".json"), folder.appendingPathComponent("info.json"), folder.appendingPathComponent(name + ".json")] {
         if let d = try? Data(contentsOf: u), let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] { return j }
     }
     return nil
 }
 
+func urlPath(_ path: String) -> String { path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path }
+
+/// The address of a picture in Games/ (covers and icons), for the cabinet's page.
 func gameURL(_ file: URL) -> String {
-    let rel = file.path.replacingOccurrences(of: gamesDir.path + "/", with: "")
-    return "arcade://app/games/" + (rel.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? rel)
+    "arcade://app/games/" + urlPath(file.path.replacingOccurrences(of: gamesDir.path + "/", with: ""))
 }
 
 func iconThumb(for app: URL, id: String) -> String? {
@@ -127,7 +131,8 @@ func iconThumb(for app: URL, id: String) -> String? {
 /// "icon.png" inside its folder. Without one the cover is shown there.
 func badge(id: String, name: String) -> String? {
     for ext in imageExts {
-        for file in [gamesDir.appendingPathComponent(name + ".icon." + ext), gamesDir.appendingPathComponent(id).appendingPathComponent("icon." + ext)]
+        let folder = gamesDir.appendingPathComponent(id)
+        for file in [gamesDir.appendingPathComponent(name + ".icon." + ext), folder.appendingPathComponent("icon." + ext), folder.appendingPathComponent(name + ".icon." + ext)]
         where fm.fileExists(atPath: file.path) { return gameURL(file) + "?v=\(modTime(file))" }
     }
     return nil
@@ -137,11 +142,23 @@ func cover(for item: URL, name: String) -> String? {
     for ext in imageExts {
         let side = gamesDir.appendingPathComponent(name + "." + ext)
         if fm.fileExists(atPath: side.path) { return gameURL(side) + "?v=\(modTime(side))" }
-        let inside = item.appendingPathComponent("cover." + ext)
-        if fm.fileExists(atPath: inside.path) { return gameURL(inside) + "?v=\(modTime(inside))" }
+        for inside in [item.appendingPathComponent("cover." + ext), item.appendingPathComponent(name + "." + ext)]
+        where fm.fileExists(atPath: inside.path) { return gameURL(inside) + "?v=\(modTime(inside))" }
     }
     return nil
 }
+/// The files that describe an app, kept next to it: "<name>.json", "<name>.png", "<name>.icon.png".
+let sidecarSuffixes = ["json"] + imageExts + imageExts.map { "icon." + $0 }
+
+/// A folder holding an app and its describing files is shown under the app's name, with its cover,
+/// details and screen shape; any other folder keeps the folder's name.
+func folderGameName(_ folder: URL, app: URL) -> String {
+    let base = app.deletingPathExtension().lastPathComponent
+    let describes = app.deletingLastPathComponent().standardizedFileURL.path == folder.standardizedFileURL.path
+        && sidecarSuffixes.contains { fm.fileExists(atPath: folder.appendingPathComponent(base + "." + $0).path) }
+    return describes && !fm.fileExists(atPath: folder.appendingPathComponent("info.json").path) ? base : folder.lastPathComponent
+}
+
 func modTime(_ u: URL) -> Int { Int((try? u.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate?.timeIntervalSince1970 ?? 0) }
 
 /// An installed app copies its built-in games into the Games folder the first time, and refreshes them
@@ -189,7 +206,8 @@ func scanGames() -> [Game] {
             if fm.fileExists(atPath: index.path) {
                 games.append(Game(id: item.lastPathComponent, name: name, kind: "web", target: index, thumb: cover(for: item, name: name)))
             } else if let app = firstApp(in: item) {
-                games.append(Game(id: item.lastPathComponent, name: name, kind: "app", target: app, thumb: cover(for: item, name: name) ?? iconThumb(for: app, id: item.lastPathComponent)))
+                let title = folderGameName(item, app: app)
+                games.append(Game(id: item.lastPathComponent, name: title, kind: "app", target: app, thumb: cover(for: item, name: title) ?? iconThumb(for: app, id: item.lastPathComponent)))
             } else if let exe = launcher(in: item) {
                 games.append(Game(id: item.lastPathComponent, name: name, kind: "exec", target: exe, thumb: cover(for: item, name: name)))
             }
@@ -200,17 +218,69 @@ func scanGames() -> [Game] {
     return games.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
 }
 
-// MARK: - serving the cabinet and the games (arcade://app/...)
+/// Brings an app's cover, details and icon along when it is added, so it keeps its name card and screen shape.
+func copySidecars(of src: URL, to dest: URL) {
+    let from = src.deletingPathExtension(), to = dest.deletingPathExtension()
+    for suffix in sidecarSuffixes {
+        let file = from.appendingPathExtension(suffix), copy = to.appendingPathExtension(suffix)
+        if fm.fileExists(atPath: file.path), !fm.fileExists(atPath: copy.path) { try? fm.copyItem(at: file, to: copy) }
+    }
+}
+
+// MARK: - serving the cabinet (arcade://app/...) and the web games (arcade://game-.../...)
+
+/// Every web game is served from an address of its own: arcade://game-<from its file name>/<key>/<file>.
+/// The host gives it a separate web origin, so it cannot reach the cabinet's page or another game's saved
+/// data (and keeps its own between runs). The key, new each time Coinsole starts, stops a game from
+/// working out the address of another game's files.
+struct WebGame {
+    let host: String
+    let key = UUID().uuidString
+    let root: URL        // the only folder it is served from
+    let only: String?    // a single .html game: the only file in that folder it is served
+    init(_ g: Game) {
+        host = "game-" + SHA256.hash(data: Data(g.id.utf8)).prefix(16).map { String(format: "%02x", $0) }.joined()
+        let folder = gamesDir.appendingPathComponent(g.id, isDirectory: true)
+        let isFolder = g.target.lastPathComponent != g.id
+        root = isFolder ? folder : gamesDir
+        only = isFolder ? nil : g.id
+    }
+}
 
 final class FileServer: NSObject, WKURLSchemeHandler {
-    func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
-        guard let url = task.request.url else { return }
+    private var webGames: [String: WebGame] = [:]   // by host
+
+    /// The address to load a web game from; from then on its files can be served.
+    func address(of g: Game) -> String {
+        var game = WebGame(g)
+        if let known = webGames[game.host], known.only == game.only { game = known }   // keep its key
+        webGames[game.host] = game
+        return "arcade://\(game.host)/\(game.key)/" + urlPath(g.target.lastPathComponent)
+    }
+
+    /// The file an address stands for, or nil if it may not be served.
+    private func file(for url: URL) -> URL? {
         let parts = url.path.split(separator: "/", maxSplits: 1).map(String.init)
-        let base: URL? = ["ui": uiDir, "games": gamesDir, "thumbs": thumbsDir][parts.first ?? ""]
-        guard let base, parts.count == 2 else { return fail(task) }
-        let file = base.appendingPathComponent(parts[1]).standardizedFileURL
-        // never serve anything outside the folder asked for
-        guard file.path.hasPrefix(base.standardizedFileURL.path + "/"), let data = try? Data(contentsOf: file) else { return fail(task) }
+        guard parts.count == 2, let host = url.host else { return nil }
+        let base: URL, path = parts[1]
+        if host == "app" {
+            // the cabinet's origin: its own page, and pictures. Nothing from a game may ever run here.
+            guard let dir = ["ui": uiDir, "games": gamesDir, "thumbs": thumbsDir][parts[0]],
+                  parts[0] != "games" || imageExts.contains((path as NSString).pathExtension.lowercased()) else { return nil }
+            base = dir
+        } else {
+            guard let game = webGames[host], parts[0] == game.key else { return nil }
+            if let only = game.only { return path == only ? game.root.appendingPathComponent(only) : nil }
+            base = game.root
+        }
+        let file = base.appendingPathComponent(path).standardizedFileURL
+        // never serve anything outside the folder asked for, not even through a link inside it
+        guard file.resolvingSymlinksInPath().path.hasPrefix(base.resolvingSymlinksInPath().path + "/") else { return nil }
+        return file
+    }
+
+    func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
+        guard let url = task.request.url, let file = file(for: url), let data = try? Data(contentsOf: file) else { return fail(task) }
         let mime = UTType(filenameExtension: file.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
         let headers = ["Content-Type": mime, "Content-Length": "\(data.count)", "Cache-Control": "no-cache"]
         task.didReceive(HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: headers)!)
@@ -251,9 +321,16 @@ final class KioskWindow: NSWindow {
     override var canBecomeMain: Bool { true }
 }
 
+// macOS draws a frame from another origin at half speed until it is clicked or typed in, which a game played
+// with a controller never is. Each web game's frame reports in here, from a script world of its own that the
+// game cannot see, and Coinsole answers with an empty script, which counts as that first touch.
+let wakeWorld = WKContentWorld.world(name: "coinsole")
+let wakeScript = "if (parent === top && parent !== window) webkit.messageHandlers.wake.postMessage(null)"
+
 final class Arcade: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKNavigationDelegate, NSWindowDelegate {
     var window: NSWindow!
     var web: CabinetView!
+    let files = FileServer()
     var games: [Game] = []
     var running: (id: String, pid: pid_t)?
     var runningWatch: NSKeyValueObservation?
@@ -320,8 +397,15 @@ final class Arcade: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKN
         buildMenu()
         listenForCoins()
         let config = WKWebViewConfiguration()
-        config.setURLSchemeHandler(FileServer(), forURLScheme: "arcade")
+        config.setURLSchemeHandler(files, forURLScheme: "arcade")
+        // A web game's frame has its own origin, and by default WebKit forgets what such a frame saves (high
+        // scores) when the app quits. This setting keeps it; origins stay apart. It has no public API.
+        if config.preferences.responds(to: NSSelectorFromString("_setStorageBlockingPolicy:")) {
+            config.preferences.setValue(0, forKey: "storageBlockingPolicy")   // 0: block no storage
+        } else { alog("this macOS cannot keep web games' saved data between runs") }
         config.userContentController.add(self, name: "arcade")
+        config.userContentController.add(self, contentWorld: wakeWorld, name: "wake")
+        config.userContentController.addUserScript(WKUserScript(source: wakeScript, injectionTime: .atDocumentEnd, forMainFrameOnly: false, in: wakeWorld))
         config.mediaTypesRequiringUserActionForPlayback = []
         web = CabinetView(frame: .zero, configuration: config)
         web.navigationDelegate = self
@@ -345,6 +429,7 @@ final class Arcade: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKN
         window.setFrameAutosaveName("Coinsole window") // opens where you left it
         window.makeKeyAndOrderFront(nil)
         watchControllers()
+        watchKeys()
         NSApp.activate(ignoringOtherApps: true)
 
         web.load(URLRequest(url: URL(string: "arcade://app/ui/index.html")!))
@@ -419,8 +504,26 @@ final class Arcade: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKN
         NSApp.mainMenu = main
     }
 
+    // MARK: what the window may show
+    /// The window itself only ever shows the cabinet's page, and no frame (where web games play) may load
+    /// anything from the cabinet's origin.
+    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        let url = action.request.url
+        let cabinet = url?.scheme?.lowercased() == "arcade" && url?.host?.lowercased() == "app"
+        guard let frame = action.targetFrame else { return decisionHandler(.cancel) }   // a new window
+        if frame.isMainFrame { decisionHandler(cabinet && url?.path == "/ui/index.html" ? .allow : .cancel) }
+        else { decisionHandler(cabinet ? .cancel : .allow) }
+    }
+
     // MARK: messages from the cabinet
     func userContentController(_ c: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "wake" { web.evaluateJavaScript("void 0", in: message.frameInfo, in: wakeWorld); return }
+        // only the cabinet's own page gives orders: a web game's frame can reach this handler too
+        let sender = message.frameInfo
+        guard sender.isMainFrame, sender.securityOrigin.protocol == "arcade", sender.securityOrigin.host == "app" else {
+            if !refusedLogged { refusedLogged = true; alog("ignored a command that did not come from the cabinet's page") }
+            return
+        }
         guard let body = message.body as? [String: Any], let cmd = body["cmd"] as? String else { return }
         let id = body["id"] as? String
         switch cmd {
@@ -468,6 +571,8 @@ final class Arcade: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKN
         }
     }
 
+    var refusedLogged = false
+
     func send(_ msg: [String: Any]) {
         guard let d = try? JSONSerialization.data(withJSONObject: msg), let s = String(data: d, encoding: .utf8) else { return }
         web.evaluateJavaScript("window.arcadeReceive && window.arcadeReceive(\(s))")
@@ -496,7 +601,7 @@ final class Arcade: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKN
                 var o: [String: Any] = ["id": g.id, "name": g.name, "kind": g.kind]
                 if let t = g.thumb { o["thumb"] = t }
                 if let i = badge(id: g.id, name: g.name) { o["icon"] = i }
-                if g.kind == "web" { o["url"] = gameURL(g.target) }
+                if g.kind == "web" { o["url"] = files.address(of: g) }
                 if let info = infoFor(id: g.id, name: g.name) { o["info"] = info }
                 return o
             },
@@ -505,6 +610,29 @@ final class Arcade: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKN
         if let select { msg["select"] = select }
         send(msg)
         if let r = running { send(["type": "running", "id": r.id]) }
+    }
+
+    // MARK: keyboard, to light the keys of the on-screen keyboard
+    /// Coinsole's own window only (not other apps, and no permission needed): the page hears which of these
+    /// keys goes down or up, even while a game playing inside it has the keyboard.
+    func watchKeys() {
+        let names: [UInt16: String] = [
+            53: "Escape", 18: "Digit1", 19: "Digit2", 20: "Digit3", 21: "Digit4", 23: "Digit5", 22: "Digit6", 26: "Digit7", 28: "Digit8", 25: "Digit9", 29: "Digit0", 51: "Backspace",
+            48: "Tab", 12: "KeyQ", 13: "KeyW", 14: "KeyE", 15: "KeyR", 17: "KeyT", 16: "KeyY", 32: "KeyU", 34: "KeyI", 31: "KeyO", 35: "KeyP", 33: "BracketLeft", 30: "BracketRight",
+            57: "CapsLock", 0: "KeyA", 1: "KeyS", 2: "KeyD", 3: "KeyF", 5: "KeyG", 4: "KeyH", 38: "KeyJ", 40: "KeyK", 37: "KeyL", 36: "Enter",
+            56: "ShiftLeft", 6: "KeyZ", 7: "KeyX", 8: "KeyC", 9: "KeyV", 11: "KeyB", 45: "KeyN", 46: "KeyM", 43: "Comma", 47: "Period", 60: "ShiftRight",
+            59: "ControlLeft", 58: "AltLeft", 55: "MetaLeft", 49: "Space", 54: "MetaRight", 123: "ArrowLeft", 124: "ArrowRight", 125: "ArrowDown", 126: "ArrowUp"]
+        let modifiers: [UInt16: NSEvent.ModifierFlags] = [56: .shift, 60: .shift, 59: .control, 58: .option, 55: .command, 54: .command, 57: .capsLock]
+        NotificationCenter.default.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.send(["type": "key", "code": "all", "down": false])   // releases made in another app are never heard
+        }
+        NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .flagsChanged]) { [weak self] e in
+            if let self, e.window === self.window, let code = names[e.keyCode] {
+                if e.type == .flagsChanged { if let flag = modifiers[e.keyCode] { self.send(["type": "key", "code": code, "down": e.modifierFlags.contains(flag)]) } }
+                else if e.type == .keyUp || !e.isARepeat { self.send(["type": "key", "code": code, "down": e.type == .keyDown]) }
+            }
+            return e
+        }
     }
 
     // MARK: game controllers (Xbox, PlayStation, Switch Pro...), read through macOS
@@ -749,7 +877,14 @@ final class Arcade: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKN
     func stopGame() {
         guard let r = running else { return }
         // already gone (closed on its own): just put the cabinet back
-        guard let app = NSRunningApplication(processIdentifier: r.pid), !app.isTerminated, kill(r.pid, 0) == 0 else { return gameEnded(r.pid) }
+        guard kill(r.pid, 0) == 0 else { return gameEnded(r.pid) }
+        guard let app = NSRunningApplication(processIdentifier: r.pid) else {
+            // a plain program (started from a script or a program file), which macOS does not list as an app
+            kill(r.pid, SIGTERM)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { if self.running?.pid == r.pid { kill(r.pid, SIGKILL) } }
+            return
+        }
+        guard !app.isTerminated else { return gameEnded(r.pid) }
         app.terminate()
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { if !app.isTerminated { app.forceTerminate() } }
     }
@@ -873,7 +1008,10 @@ final class Arcade: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKN
                 let base = src.deletingPathExtension().lastPathComponent, ext = src.pathExtension
                 dest = gamesDir.appendingPathComponent("\(base) \(n)" + (ext.isEmpty ? "" : ".\(ext)")); n += 1
             }
-            do { try fm.copyItem(at: src, to: dest); added.append(dest.lastPathComponent) }
+            do {
+                try fm.copyItem(at: src, to: dest); added.append(dest.lastPathComponent)
+                if src.pathExtension.lowercased() == "app" { copySidecars(of: src, to: dest) }
+            }
             catch { send(["type": "toast", "text": "COULD NOT COPY " + src.lastPathComponent.uppercased()]) }
         }
         let found = Set(scanGames().map(\.id))
@@ -901,7 +1039,8 @@ final class Arcade: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKN
     func remove(_ id: String) {
         guard let g = games.first(where: { $0.id == id }) else { return }
         try? fm.trashItem(at: gamesDir.appendingPathComponent(id), resultingItemURL: nil)
-        for ext in imageExts { try? fm.trashItem(at: gamesDir.appendingPathComponent(g.name + "." + ext), resultingItemURL: nil) }
+        let own = (id as NSString).deletingPathExtension   // only the files kept next to this item, not a namesake's
+        for suffix in sidecarSuffixes { try? fm.trashItem(at: gamesDir.appendingPathComponent(own + "." + suffix), resultingItemURL: nil) }
         try? fm.removeItem(at: thumbsDir.appendingPathComponent(id.replacingOccurrences(of: "/", with: "_") + ".png"))
         send(["type": "toast", "text": g.name.uppercased() + " MOVED TO TRASH"])
         sendList()

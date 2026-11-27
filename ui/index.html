@@ -327,6 +327,58 @@
   #pspad #ps-game .tv { font-size: 30px; font-weight: 800; text-anchor: middle; }
   #pspad #ps-game .tv.small { font-size: 21px; }
   #pspad #ps-game .tl { font-size: 16px; font-weight: 600; text-anchor: middle; fill: #c6dcff; }
+
+  /* ---------- Keyboard look: a gold backlit keyboard instead of a controller, for playing without one ---------- */
+  #kbpad { display: none; left: 381px; top: 662px; width: 910px; height: 266px; }
+  body.xpadview #kbpad { left: 236px; top: 340px; width: 1200px; height: 351px; }
+  body.skin-keys #kbpad { display: block; }
+  body.skin-keys #xpad, body.skin-keys #pspad { display: none; }
+  body.skin-keys { --xg: #ffb000; --xg2: #ff8a00; --xglow: rgba(255, 176, 0, 0.5); --xcard: rgba(34, 27, 15, 0.92); --xedge: rgba(255, 214, 120, 0.1);
+    background: radial-gradient(ellipse at 50% 112%, #4a3000 0%, #161006 45%, #060503 76%); }
+  body.skin-keys .xarc { box-shadow: 0 -12px 50px var(--xglow), inset 0 12px 40px rgba(255,176,0,0.14); }
+  body.skin-keys .xbrand .brand { filter: drop-shadow(0 0 12px rgba(255,176,0,0.35)); }
+  body.skin-keys .xnav button.on, body.skin-keys .xrow.sel, body.skin-keys .xadd.sel { background: rgba(255,176,0,0.12); }
+  body.skin-keys .xprofile { background: #1c1406; }
+  body.skin-keys .xprofile .dot { background: var(--xg); box-shadow: 0 0 0 3px #1c1406, 0 0 12px var(--xg); }
+  body.skin-keys .xbtn:hover { background: #2c2210; }
+  body.skin-keys .xbtn.play { color: #1c1200; background: linear-gradient(180deg, #ffd35a, #ffa200); }
+  body.skin-keys .xbtn.play .glyph { color: #1c1200; background: rgba(28,18,0,0.15); box-shadow: inset 0 0 0 2.5px #1c1200; }
+  body.skin-keys .xbtn .glyph.a, body.skin-keys .xfoot .glyph.a { font-family: -apple-system, system-ui, sans-serif; }
+  body.skin-keys .glyph.b, body.skin-keys .xhint .glyph { font-size: 12px; }
+  body.skin-keys .xhint .glyph { font-size: 14px; }
+  body.skin-keys .xframe { box-shadow: 0 0 0 4px var(--xg), 0 0 40px var(--xglow), 0 0 120px rgba(255,176,0,0.22); }
+  body.skin-keys .xicon { background-color: #1c1406; }
+  body.skin-keys .xinfo-card .c { background: rgba(255,176,0,0.1); box-shadow: inset 0 0 0 1px rgba(255,176,0,0.35); }
+  body.skin-keys .menu-list .chip.on { color: #1c1200; background: #ffb000; }
+  body.skin-keys .menu-list li.sel { background: rgba(255,176,0,0.2); box-shadow: inset 0 0 0 2px #ffb000; }
+  body.skin-keys .tile.sel { border-color: #ffb000; box-shadow: 0 0 0 2px #ffb000, 0 0 18px var(--xglow); }
+  body.skin-keys .xpadinfo .looks button.on { color: #1c1200; }
+  body.skin-keys .about .ab-link { color: #ffb000; }
+  .xprofile .kbicon { display: none; fill: none; stroke: #fff; stroke-width: 1.5; stroke-linecap: round; }
+  body.skin-keys .xprofile .padicon { display: none; }
+  body.skin-keys .xprofile .kbicon { display: block; }
+  body.skin-keys #tstage { background: radial-gradient(ellipse at 50% 50%, #2e1f04, #070503 70%); }
+  body.skin-keys .t-name b { color: #fff6e0; text-shadow: 0 0 10px #ffb000, 0 0 24px rgba(255,176,0,0.7), 3px 3px 0 #7a4a00; }
+  body.skin-keys .t-crt .msg, body.skin-keys .t-foot b { color: #ffb000; text-shadow: 0 0 10px rgba(255,176,0,0.8); }
+  body.skin-keys .t-name svg, body.skin-keys #tstage .t-shape { filter: hue-rotate(-100deg) saturate(1.5) brightness(1.15); }
+  body.skin-keys .t-hint { color: #8a6a2c; }
+  #kbpad .case { fill: url(#kbCase); stroke: rgba(255,214,120,0.22); stroke-width: 1.5; }
+  #kbpad { filter: drop-shadow(0 -6px 26px rgba(255,176,0,0.28)); }
+  #kbpad .cap { fill: url(#kbKey); stroke: rgba(255,255,255,0.09); transition: fill 0.05s; }
+  #kbpad .lbl { font: 600 13px var(--ui); fill: #a9a290; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+  #kbpad .sub { font: 800 8px var(--ui); letter-spacing: 1px; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+  #kbpad .k { transition: transform 0.05s; }
+  #kbpad .act { cursor: pointer; --c: var(--xg); }
+  #kbpad .act .cap { stroke: var(--c); stroke-width: 1.8; filter: drop-shadow(0 0 5px color-mix(in srgb, var(--c) 60%, transparent)); }
+  #kbpad .act .lbl { fill: #fff; } #kbpad .act .sub { fill: var(--c); }
+  #kbpad .act:hover .cap { fill: #3a2d12; }
+  #kbpad .main .cap { fill: url(#kbMain); } #kbpad .main .lbl, #kbpad .main .sub { fill: #1c1200; }
+  #kbpad .k.on { transform: translateY(2px); }
+  #kbpad .k.on .cap { fill: var(--c, var(--xg)); stroke: #fff; filter: drop-shadow(0 0 12px var(--c, var(--xg))); }
+  #kbpad .k.on .lbl, #kbpad .k.on .sub { fill: #140d00; }
+  #kbpad .screen { fill: #0c0903; stroke: rgba(255,176,0,0.45); stroke-width: 1.5; }
+  #kbpad #kb-dash text { font-family: var(--pixel); text-anchor: middle; dominant-baseline: central; }
+  #kbpad .knob { fill: url(#kbKnob); stroke: var(--xg); stroke-width: 2.5; filter: drop-shadow(0 0 8px var(--xglow)); }
 </style>
 </head>
 <body class="booting">
@@ -338,7 +390,7 @@
   <nav class="abs xnav" id="xnav"><button data-view="home"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h4.5v-5.5h4v5.5h4.5V10"/></svg>Home</button><button data-view="games"><svg viewBox="0 0 24 24"><path d="M7 8h10a5 5 0 0 1 4.8 6.4l-.9 3a2.5 2.5 0 0 1-4.2 1L14.5 16h-5l-2.2 2.4a2.5 2.5 0 0 1-4.2-1l-.9-3A5 5 0 0 1 7 8Z"/><path d="M7.5 11v4M5.5 13h4"/><circle cx="15.5" cy="12" r=".6"/><circle cx="17.5" cy="14" r=".6"/></svg>Games</button><button data-view="upload"><svg viewBox="0 0 24 24"><path d="M7 18H6.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 17.6 8.6 4.7 4.7 0 0 1 17.5 18H17"/><path d="M12 20v-8M8.8 14.8 12 11.6l3.2 3.2"/></svg>Upload</button><button data-view="favorites"><svg viewBox="0 0 24 24"><path d="M12 20s-7.5-4.4-7.5-10A4.3 4.3 0 0 1 12 7.5 4.3 4.3 0 0 1 19.5 10c0 5.6-7.5 10-7.5 10Z"/></svg>Favorites</button><button data-view="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>Settings</button></nav>
   <button class="abs xwallet" data-view="credits" id="xwallet" title="Credits — token machine"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5.5"/><path d="M12 9.5v5"/></svg><b id="xwalletN">0</b></button>
   <button class="abs xpower" data-view="exit" title="Exit Coinsole"><svg viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></button>
-  <button class="abs xprofile" id="xprofile" data-view="padtest" title="Controller"><svg class="padicon" viewBox="0 0 24 16" aria-hidden="true"><path fill="#ffffff" d="M6 1h12a5.5 5.5 0 0 1 5.3 7l-1 3.6a3 3 0 0 1-5.1 1.3L14.5 10.5h-5L6.8 12.9a3 3 0 0 1-5.1-1.3l-1-3.6A5.5 5.5 0 0 1 6 1Zm0 3.2v1.6H4.4v1.6H6V9h1.6V7.4h1.6V5.8H7.6V4.2Zm11.2.6a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm-2 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"/></svg><span class="dot"></span></button>
+  <button class="abs xprofile" id="xprofile" data-view="padtest" title="Controller"><svg class="padicon" viewBox="0 0 24 16" aria-hidden="true"><path fill="#ffffff" d="M6 1h12a5.5 5.5 0 0 1 5.3 7l-1 3.6a3 3 0 0 1-5.1 1.3L14.5 10.5h-5L6.8 12.9a3 3 0 0 1-5.1-1.3l-1-3.6A5.5 5.5 0 0 1 6 1Zm0 3.2v1.6H4.4v1.6H6V9h1.6V7.4h1.6V5.8H7.6V4.2Zm11.2.6a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm-2 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"/></svg><svg class="kbicon" viewBox="0 0 24 16" width="38" height="26" aria-hidden="true"><rect x="1.5" y="2" width="21" height="12" rx="2.5"/><path d="M5 5.5h.1M8.5 5.5h.1M12 5.5h.1M15.5 5.5h.1M19 5.5h.1M5 8.5h.1M8.5 8.5h.1M12 8.5h.1M15.5 8.5h.1M19 8.5h.1M7.5 11.2h9"/></svg><span class="dot"></span></button>
   <section class="abs xinfo"><div class="xicon" id="xicon"></div><div class="xtitle" id="xtitle"></div><div class="xmeta" id="xmeta"></div><p class="xdesc" id="xdesc"></p></section>
   <div class="abs xbtns">
     <button class="xbtn play" id="xplay"><span class="glyph a">A</span>Play</button>
@@ -650,6 +702,7 @@
     <rect x="947" y="764" width="106" height="34" rx="17" fill="#050608"/><rect x="951" y="767" width="98" height="26" rx="13" fill="url(#pnRubber)"/>
     </g>
   </svg>
+  <svg class="abs xpad kbpad" id="kbpad" viewBox="0 0 910 266" role="group" aria-label="Keyboard"></svg>
   <div class="abs xfoot" style="left:72px"><span class="key kl">L</span>Previous<span class="gap"></span><span class="key kr">R</span>Next</div>
   <button class="abs xfoot xbig" id="xbig" style="right:64px"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>Big screen</button>
   <div class="abs xfoot" style="right:64px"><span class="glyph a">A</span>Select<span class="gap"></span><span class="glyph b">B</span>Back</div>
@@ -739,37 +792,42 @@ const S = { skinPref: store.get("skin", "auto"), paused: false, pad: { connected
 const VERSION = "1.0";
 // button names for the controller in use: Xbox letters, or PlayStation symbols
 const PS_NAMES = { a: "✕", b: "○", x: "□", y: "△", l: "L1", r: "R1" }, XB_NAMES = { a: "A", b: "B", x: "X", y: "Y", l: "L", r: "R" };
-const BTN = (k) => (S.ps ? PS_NAMES : XB_NAMES)[k];
+const KB_NAMES = { a: "⏎", b: "esc", x: "F", y: "I", l: "↑", r: "↓" }, KB_WORDS = { a: "ENTER", b: "ESC", x: "F", y: "I", l: "UP", r: "DOWN" };
+const BTN = (k) => (S.keys ? KB_NAMES : S.ps ? PS_NAMES : XB_NAMES)[k];
 // the same name inside pixel-font text: that font draws ✕ ○ □ △ as specks, so the symbols get a readable one
-const PXBTN = (k) => (S.ps && "abxy".includes(k) ? `<span class="sym">${BTN(k)}</span>` : BTN(k));
+const PXBTN = (k) => (S.keys ? KB_WORDS[k] : S.ps && "abxy".includes(k) ? `<span class="sym">${BTN(k)}</span>` : BTN(k));
 function setButtonNames() {
   for (const k of ["a", "b", "x", "y"]) document.querySelectorAll(".glyph." + k).forEach((e) => (e.textContent = BTN(k)));
   document.querySelectorAll(".xfoot .kl").forEach((e) => (e.textContent = BTN("l")));
   document.querySelectorAll(".xfoot .kr").forEach((e) => (e.textContent = BTN("r")));
-  document.querySelector("#xpadinfo .h").textContent = `HOLD ${BTN("b")} OR PRESS ESC TO GO BACK`;
+  document.querySelector("#xpadinfo .h").textContent = S.keys ? "← → CHANGE THE LOOK · ESC TO GO BACK" : `HOLD ${BTN("b")} OR PRESS ESC TO GO BACK`;
+  document.getElementById("xpadlast").textContent = "";
 }
 function openWebsite() { beep("start"); if (native) send("website"); else window.open("https://faustomelchiorre.com/", "_blank"); }
 const cur = () => S.games[S.sel];
 const onAdd = () => S.view === "home" && S.sel >= S.games.length;   // "Add game" is selected
-// two looks share one layout: dark Xbox and light PlayStation. scr() is the screen games and menus are drawn on
+// three looks share one layout: dark Xbox, light PlayStation and a keyboard. scr() is the screen games and menus are drawn on
 const scr = () => document.getElementById("xscreen");
 const crtEl = () => document.getElementById(S.theater ? "tcrt" : "xcrt");
-const SKIN_NAMES = { xbox: "DARK", ps: "LIGHT", auto: "AUTO" };
+const SKIN_NAMES = { xbox: "DARK", ps: "LIGHT", keys: "KEYS", auto: "AUTO" };
 const LOOKS = Object.keys(SKIN_NAMES);
 function setLook(look) { S.skinPref = look; store.set("skin", look); }
 const stepLook = (d) => setLook(LOOKS[(LOOKS.indexOf(S.skinPref) + d + LOOKS.length) % LOOKS.length]);
-// auto: follow the connected controller; with none connected (e.g. the pad is asleep) keep the look of the last one used
+// auto: follow the connected controller; with none connected (e.g. the pad is asleep) keep the look of the last one
+// used, and show the keyboard to someone who has never connected one
 const skinForPad = (name, kind) => (kind === "ps" || /dualsense|dualshock|playstation|ps5|ps4/i.test(name || "") ? "ps" : "xbox");
 if (!LOOKS.includes(S.skinPref)) setLook("auto");          // an older choice, from a look that no longer exists
 function effectiveSkin() {
-  const eff = S.skinPref !== "auto" ? S.skinPref : S.pad.connected ? skinForPad(S.pad.name, S.pad.kind) : store.get("lastPadSkin", "xbox");
-  return eff === "ps" ? "ps" : "xbox";
+  const eff = S.skinPref !== "auto" ? S.skinPref : S.pad.connected ? skinForPad(S.pad.name, S.pad.kind) : store.get("lastPadSkin", "keys");
+  return ["ps", "keys"].includes(eff) ? eff : "xbox";
 }
 function applySkin() {
-  const ps = effectiveSkin() === "ps";
-  if (ps === S.ps) return;
-  S.ps = ps;
-  document.body.classList.toggle("skin-ps", ps);
+  const skin = effectiveSkin();
+  if (skin === S.skin) return;
+  S.skin = skin; S.ps = skin === "ps"; S.keys = skin === "keys";
+  document.body.classList.toggle("skin-ps", S.ps);
+  document.body.classList.toggle("skin-keys", S.keys);
+  document.getElementById("xprofile").dataset.look = skin;
   setButtonNames();
   crtEl().appendChild(document.getElementById("toast"));
 }
@@ -795,10 +853,10 @@ function playIntro() {
   // 2. the pad flies up, its lights come on and the four buttons run once round
   go(".xpad", [{ opacity: 0, transform: "translateY(430px) scale(.86)" }, { opacity: 1, offset: 0.35 }, { opacity: 1, transform: "none" }], 380, 820, { easing: spring });
   go("#xpad .rim, #xpad .rimglow, #xpad .accent, #xpad .led, #xpad .spark, #pspad .lampline", flicker, 1020, 700, { easing: "linear" });
-  go("#xp-dash, #ps-dash", [{ opacity: 0 }, { opacity: 1 }], 1280, 380);
+  go("#xp-dash, #ps-dash, #kb-dash", [{ opacity: 0 }, { opacity: 1 }], 1280, 380);
   const pad = S.ps ? "ps" : "xp";
   [3, 1, 0, 2].forEach((i, k) => {
-    const key = document.getElementById(`${pad}-b${i}`);
+    const key = document.getElementById(S.keys ? "kb-" + ["ArrowUp", "ArrowRight", "ArrowDown", "ArrowLeft"][k] : `${pad}-b${i}`);
     boot.timers.push(setTimeout(() => key?.classList.add("on"), 1360 + k * 100), setTimeout(() => key?.classList.remove("on"), 1540 + k * 100));
   });
   // 3. the words and parts arrive around it
@@ -821,7 +879,7 @@ function endIntro() {
   boot.on = false;
   boot.timers.forEach(clearTimeout);
   boot.anims.forEach((a) => a.finish());
-  document.querySelectorAll("#xpad .face.on, #pspad .face.on").forEach((e) => e.classList.remove("on"));
+  document.querySelectorAll("#xpad .face.on, #pspad .face.on, #kbpad .k.on").forEach((e) => e.classList.remove("on"));
   const heading = document.getElementById("xtitle"); heading.textContent = heading.textContent;
   document.body.classList.remove("booting");
 }
@@ -845,14 +903,19 @@ function receive(msg) {
   else if (msg.type === "spent") { S.spending = null; const g = S.games.find((x) => x.id === msg.id); if (g && !S.web) { playWeb(g); render(); } }
   else if (msg.type === "theater") { S.theater = !!msg.on; document.body.classList.toggle("theater", S.theater); render(); }
   else if (msg.type === "running") { S.running = msg.id; S.paused = false; S.gameWaiting = false; render(); }
-  else if (msg.type === "stopped") { if (S.running === msg.id) { S.running = null; S.paused = false; S.gameWaiting = false; } render(); }
+  else if (msg.type === "stopped") {
+    const closed = S.running === msg.id;
+    if (closed) { S.running = null; S.paused = false; S.gameWaiting = false; }
+    render();
+    if (closed && S.next) { const next = S.next; S.next = null; setTimeout(() => startGame(next), 400); }   // the game you chose instead
+  }
   else if (msg.type === "gameWaiting") { if (S.running === msg.id) { S.gameWaiting = true; render(); } }
   else if (msg.type === "paused") { if (S.running) { S.paused = true; render(); } }
   else if (msg.type === "access") { S.waitingAccess = !!msg.waiting; render(); }
   else if (msg.type === "pad") {
-    nativePad = msg; if (S.ps) updatePsPad(); else updateXPad();
+    nativePad = msg; if (S.ps) updatePsPad(); else if (!S.keys) updateXPad();
     // a game playing on the screen gets the controller too
-    if (S.web) webFrame()?.contentWindow?.postMessage({ type: "arcade-pad", b: msg.b, a: msg.a }, "*");
+    if (S.web) webFrame()?.contentWindow?.postMessage({ type: "arcade-pad", b: msg.b, a: msg.a }, S.webOrigin);   // that game only
     const guide = !!(msg.b || [])[16];
     if (guide && !S.guideWasDown && !boot.on) toggleBigScreen();                     // the Xbox / PS button: big screen on/off
     S.guideWasDown = guide;
@@ -863,6 +926,7 @@ function receive(msg) {
     if (msg.connected && !was) toast("CONTROLLER CONNECTED"); else if (!msg.connected && was) toast("CONTROLLER DISCONNECTED");
     renderPadStatus(); if (S.view === "padtest") { renderScreen(); renderX(); }
   }
+  else if (msg.type === "key") lightKey(msg.code, msg.down);   // keys pressed anywhere in Coinsole, even inside a game
   else if (msg.type === "toast") toast(msg.text);
   else if (msg.type === "exitGame") exitWeb();
   else if (msg.type === "dragging") document.body.classList.toggle("dropping", !!msg.on);
@@ -906,7 +970,7 @@ function render() {
     layoutTheater(g);
     document.getElementById("tname").textContent = (g ? g.name : "COINSOLE").toUpperCase();
     document.getElementById("tcredits").textContent = S.credits;
-    document.getElementById("tpad").textContent = S.pad.connected ? `${(/xbox/i.test(S.pad.name) ? "XBOX CONTROLLER" : /dualsense/i.test(S.pad.name) ? "DUALSENSE" : S.pad.name.toUpperCase())} CONNECTED` : "NO CONTROLLER";
+    document.getElementById("tpad").textContent = S.keys && !S.pad.connected ? "KEYBOARD" : S.pad.connected ? `${(/xbox/i.test(S.pad.name) ? "XBOX CONTROLLER" : /dualsense/i.test(S.pad.name) ? "DUALSENSE" : S.pad.name.toUpperCase())} CONNECTED` : "NO CONTROLLER";
     document.getElementById("tmsg").innerHTML = S.paused ? `<div class="blink">PAUSED</div><small>PRESS ${PXBTN("a")} TO PLAY ON</small>`
       : idleBigScreen() && g ? `<div class="idle" style='background-image:${art(g)}'></div><div class="go blink">PRESS ${PXBTN("a")} TO PLAY</div>` : "";
   }
@@ -940,6 +1004,7 @@ function layoutXScreen(g) {
 // on the controller page, where the game is out of sight, it shows the game's cover and name
 function updatePadScreen() {
   updatePsScreen();
+  updateKeysScreen();
   const box = document.getElementById("xp-game"), dash = document.getElementById("xp-dash"); if (!box || !dash) return;
   const full = S.view === "padtest";
   const playing = S.games.find((x) => x.id === (S.web || S.running)) || null;
@@ -963,6 +1028,56 @@ function updatePadScreen() {
   box.classList.toggle("playing", !!playing);
   text("xp-gname", (playing ? "\u25B6 " : "") + short(g.name, 24));
 }
+// ---------- the on-screen keyboard: drawn here, lit by the real one, and its marked keys can be clicked ----------
+// [code, label, width in keys, what it does in Coinsole, colour]
+const KB_ROWS = [
+  [["Escape", "esc", 1.5, "BACK", "#ff5a5a"], ..."1234567890".split("").map((n) => ["Digit" + n, n, 1]), ["Backspace", "⌫", 2]],
+  [["Tab", "tab", 1.5], ..."QWERTYU".split("").map((c) => ["Key" + c, c, 1]), ["KeyI", "I", 1, "INFO", "#ffe14d"], ["KeyO", "O", 1], ["KeyP", "P", 1], ["BracketLeft", "[", 1], ["BracketRight", "]", 1]],
+  [["CapsLock", "caps", 1.75], ..."ASD".split("").map((c) => ["Key" + c, c, 1]), ["KeyF", "F", 1, "FAV", "#4f9dff"], ..."GHJKL".split("").map((c) => ["Key" + c, c, 1]), ["Enter", "enter ⏎", 2.75, "PLAY", "#ffb000"]],
+  [["ShiftLeft", "shift", 2.25], ["KeyZ", "Z", 1], ["KeyX", "X", 1], ["KeyC", "C", 1, "COINS", "#ffd84a"], ["KeyV", "V", 1], ["KeyB", "B", 1, "BIG", "#ffffff"], ["KeyN", "N", 1], ["KeyM", "M", 1], ["Comma", ",", 1], ["Period", ".", 1], ["ArrowUp", "↑", 1, "", "#ffb000"], ["ShiftRight", "shift", 1.25]],
+  [["ControlLeft", "control", 1.25], ["AltLeft", "option", 1.25], ["MetaLeft", "⌘", 1.5], ["Space", "", 5, "PLAY", "#ffb000"], ["MetaRight", "⌘", 1.25], ["ArrowLeft", "←", 1, "", "#ffb000"], ["ArrowDown", "↓", 1, "", "#ffb000"], ["ArrowRight", "→", 1.25, "", "#ffb000"]],
+];
+const KB_KEY = { Escape: "Escape", Enter: "Enter", Space: " ", ArrowUp: "ArrowUp", ArrowDown: "ArrowDown", ArrowLeft: "ArrowLeft", ArrowRight: "ArrowRight", KeyF: "f", KeyI: "i", KeyC: "c", KeyB: "b" };
+function buildKeyboard() {
+  const U = 49, grad = (id, a, b) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`;
+  let keys = "";
+  KB_ROWS.forEach((row, r) => {
+    let x = 16;
+    for (const [code, label, w, does, colour] of row) {
+      const width = w * U - 5, y = 16 + r * 47, mid = x + width / 2, act = !!KB_KEY[code];
+      keys += `<g class="k${act ? " act" : ""}${code === "Enter" ? " main" : ""}" id="kb-${code}" data-code="${code}"${colour ? ` style="--c:${colour}"` : ""}><rect class="cap" x="${x}" y="${y}" width="${width}" height="42" rx="8"/>`
+        + `<text class="lbl" x="${mid}" y="${y + (does ? 16 : 21)}">${label}</text>${does ? `<text class="sub" x="${mid}" y="${y + (label ? 31 : 21)}">${does}</text>` : ""}</g>`;
+      x += w * U;
+    }
+  });
+  const svg = document.getElementById("kbpad");
+  svg.innerHTML = `<defs>${grad("kbCase", "#2a2418", "#0e0b06")}${grad("kbKey", "#2d2a24", "#15130f")}${grad("kbMain", "#ffd35a", "#ff9d00")}${grad("kbKnob", "#6a5a36", "#1b1509")}</defs>`
+    + `<rect class="case" x="1" y="1" width="908" height="264" rx="20"/>${keys}`
+    + `<rect class="screen" x="694" y="16" width="200" height="160" rx="12"/><g id="kb-dash"><text x="794" y="38" font-size="12" fill="#ffb000">CREDITS</text><text id="kb-dnum" x="794" y="76" font-size="36" fill="#ffd84d">0</text><text id="kb-dname" x="794" y="119" font-size="9" fill="#e9e0c8"></text><text id="kb-dhint" x="794" y="151" font-size="10" fill="#fff"></text></g>`
+    + `<circle class="knob" cx="794" cy="219" r="31"/><path d="M794 194v14" stroke="#ffd35a" stroke-width="4" stroke-linecap="round"/>`;
+  svg.querySelectorAll(".act").forEach((k) => k.addEventListener("click", () => {
+    const code = k.dataset.code;
+    lightKey(code, true); setTimeout(() => lightKey(code, false), 140);
+    dispatchEvent(new KeyboardEvent("keydown", { key: KB_KEY[code], code, bubbles: true }));
+  }));
+}
+function lightKey(code, down) {
+  // macOS can swallow a key's release while ⌘ is held, or when you leave Coinsole: put them all out
+  if (code === "all" || (!down && code.startsWith("Meta"))) document.querySelectorAll("#kbpad .k.on").forEach((k) => k.classList.remove("on"));
+  const key = document.getElementById("kb-" + code);
+  if (key) key.classList.toggle("on", !!down);
+  if (down && S.keys && S.view === "padtest") document.getElementById("xpadlast").textContent = code.replace(/^(Key|Digit)/, "").replace(/([a-z])([A-Z])/g, "$1 $2").toUpperCase();
+}
+addEventListener("keydown", (e) => { if (e.isTrusted) lightKey(e.code, true); }, true);
+addEventListener("keyup", (e) => lightKey(e.code, false), true);
+addEventListener("blur", () => setTimeout(() => { if (!document.hasFocus()) document.querySelectorAll("#kbpad .k.on").forEach((k) => k.classList.remove("on")); }, 0));
+function updateKeysScreen() {
+  const num = document.getElementById("kb-dnum"); if (!num) return;
+  const playing = S.games.find((x) => x.id === (S.web || S.running)) || null, g = playing || cur() || null;
+  num.textContent = String(S.credits);
+  document.getElementById("kb-dname").textContent = g ? (g.name.length > 20 ? g.name.slice(0, 19) + "\u2026" : g.name).toUpperCase() : "";
+  document.getElementById("kb-dhint").textContent = playing ? "NOW PLAYING" : onAdd() ? "ENTER = ADD GAME" : S.credits < 1 ? "C = CREDITS" : "ENTER = PLAY";
+}
 function updatePsScreen() {
   const box = document.getElementById("ps-game"), dash = document.getElementById("ps-dash"); if (!box || !dash) return;
   const playing = S.games.find((x) => x.id === (S.web || S.running)) || null;
@@ -985,7 +1100,7 @@ function updatePsScreen() {
   text("ps-tbatt", battery || "--");
 }
 // the Dark / Light / Auto buttons on the controller page
-const LOOK_LABELS = { xbox: "Dark", ps: "Light", auto: "Auto" };
+const LOOK_LABELS = { xbox: "Dark", ps: "Light", keys: "Keyboard", auto: "Auto" };
 function renderLookButtons() {
   const box = document.getElementById("xpadlooks");
   if (!box.childElementCount) {
@@ -1003,7 +1118,8 @@ function renderX() {
   document.body.classList.toggle("xpadview", S.view === "padtest");
   if (S.view === "padtest") {
     document.getElementById("xpadname").innerHTML = S.pad.connected ? (S.pad.battery >= 0 ? `<small>BATTERY ${S.pad.battery}%</small>` : "") : "No controller connected";
-    if (!S.pad.connected) document.getElementById("xpadlast").textContent = `PRESS THE ${S.ps ? "PS" : "XBOX"} BUTTON TO WAKE IT, OR PAIR IT IN SYSTEM SETTINGS › BLUETOOTH`;
+    if (S.keys) { document.getElementById("xpadname").textContent = "Keyboard"; const last = document.getElementById("xpadlast"); if (!last.textContent) last.textContent = "PRESS ANY KEY"; }
+    else if (!S.pad.connected) document.getElementById("xpadlast").textContent = `PRESS THE ${S.ps ? "PS" : "XBOX"} BUTTON TO WAKE IT, OR PAIR IT IN SYSTEM SETTINGS › BLUETOOTH`;
     else if (!document.getElementById("xpadlast").textContent || /^PRESS THE XBOX/.test(document.getElementById("xpadlast").textContent)) document.getElementById("xpadlast").textContent = "PRESS ANY BUTTON";
   }
   document.querySelectorAll("#xnav button").forEach((b) => b.classList.toggle("on", b.dataset.view === S.view || (["info", "exit", "padtest"].includes(S.view) && b.dataset.view === "home" && S.view === "info")));
@@ -1017,7 +1133,7 @@ function renderX() {
   const start = Math.max(0, Math.min(S.sel - 1, S.games.length - 4));
   const html = S.games.slice(start, start + 4).map((gm, k) => `<button class="xrow${start + k === S.sel ? " sel" : ""}" data-i="${start + k}"><div class="th" style='background-image:${art(gm)}'></div><div class="nm">${esc(gm.name)}${isFav(gm) ? " ♥" : ""}</div></button>`).join("");
   if (rows.shown !== html) { rows.innerHTML = html; rows.shown = html; }
-  rows.querySelectorAll(".xrow").forEach((r) => r.onclick = () => { const n = +r.dataset.i; if (n === S.sel && S.view === "home") start1P(); else { S.sel = n; S.view = "home"; beep("move"); render(); } });
+  rows.querySelectorAll(".xrow").forEach((r) => r.onclick = () => pickGame(+r.dataset.i));
 }
 function updatePsPad() {
   const b = nativePad.b || [], a = nativePad.a || [], t = nativePad.t || [];
@@ -1061,7 +1177,7 @@ function renderScreen() {
   if (S.view === "padtest") return;          // the controller page shows the big controller instead of the screen
   if (S.view === "info") {
     const g = cur(), i = (g && g.info) || {};
-    el.innerHTML = g ? `<div class="layer xinfo-card" style="background:linear-gradient(180deg,rgba(0,0,0,0.75),rgba(0,0,0,0.92)),${art(g)} center/cover"><h2>${esc(g.name)}</h2><div class="m">${esc([i.publisher, i.year].filter(Boolean).join(" · ") || (g.kind === "web" ? "Web game" : "Mac game"))}</div><p>${esc(i.description || "No description yet. Add a \"" + g.name + ".json\" file next to the game with a publisher, year, description and controls.")}</p>${i.controls ? `<div class="c">${esc(i.controls)}</div>` : ""}<div class="pt-hint" style="text-align:left;margin-top:22px">PRESS B OR ESC TO GO BACK · A TO PLAY</div></div>` : "";
+    el.innerHTML = g ? `<div class="layer xinfo-card" style="background:linear-gradient(180deg,rgba(0,0,0,0.75),rgba(0,0,0,0.92)),${art(g)} center/cover"><h2>${esc(g.name)}</h2><div class="m">${esc([i.publisher, i.year].filter(Boolean).join(" · ") || (g.kind === "web" ? "Web game" : "Mac game"))}</div><p>${esc(i.description || "No description yet. Add a \"" + g.name + ".json\" file next to the game with a publisher, year, description and controls.")}</p>${i.controls ? `<div class="c">${esc(i.controls)}</div>` : ""}<div class="pt-hint" style="text-align:left;margin-top:22px">${S.keys ? "ESC TO GO BACK · ENTER TO PLAY" : "PRESS B OR ESC TO GO BACK · A TO PLAY"}</div></div>` : "";
     return;
   }
   if (S.view === "exit") { el.innerHTML = `<div class="empty"><div class="big">QUIT COINSOLE?</div><div class="small">PRESS START (ENTER OR A) TO QUIT<br>ESC OR B TO STAY</div></div>`; return; }
@@ -1089,7 +1205,7 @@ function renderScreen() {
   }
   if (S.view === "credits") {
     S.buySel = Math.min(S.buySel || 0, PACKS.length - 1);
-    el.innerHTML = `<div class="layer screen-page"><h2>TOKEN MACHINE</h2><div class="wallet-line">YOU HAVE ${S.credits} CREDIT${S.credits === 1 ? "" : "S"}</div><div class="demo-note" style="margin:-8px 0 18px">PLAY = 1 CREDIT · EXTRA COIN IN A GAME = 1 CREDIT</div><ul class="menu-list packs">${PACKS.map((p, i) => `<li class="${i === S.buySel ? "sel" : ""}" data-i="${i}"><span>${p.n} CREDITS</span><span class="bonus">${p.bonus || ""}</span></li>`).join("")}</ul><div class="demo-note">DEMO TOKEN MACHINE: NO REAL MONEY IS CHARGED · A = BUY · B = BACK</div></div>`;
+    el.innerHTML = `<div class="layer screen-page"><h2>TOKEN MACHINE</h2><div class="wallet-line">YOU HAVE ${S.credits} CREDIT${S.credits === 1 ? "" : "S"}</div><div class="demo-note" style="margin:-8px 0 18px">PLAY = 1 CREDIT · EXTRA COIN IN A GAME = 1 CREDIT</div><ul class="menu-list packs">${PACKS.map((p, i) => `<li class="${i === S.buySel ? "sel" : ""}" data-i="${i}"><span>${p.n} CREDITS</span><span class="bonus">${p.bonus || ""}</span></li>`).join("")}</ul><div class="demo-note">DEMO TOKEN MACHINE: NO REAL MONEY IS CHARGED · ${PXBTN("a")} = BUY · ${PXBTN("b")} = BACK</div></div>`;
     el.querySelectorAll("li").forEach((li) => li.onclick = () => { const i = +li.dataset.i; if (i === S.buySel) buyPack(); else { S.buySel = i; beep("move"); renderScreen(); } });
     return;
   }
@@ -1123,9 +1239,9 @@ function renderScreen() {
   }
   el.innerHTML = `<div class="layer cover dim" style='background-image:${art(g)}'></div><div class="layer attract-shade"></div>${top}
     <div class="abs hud title">${esc(g.name)}</div>
-    ${S.paused ? `<div class="abs hud press blink">PAUSED</div><div class="abs hud hint">${PXBTN("a")} = RESUME · HOLD ${PXBTN("b")} OR PRESS ESC = QUIT GAME</div>`
+    ${S.paused ? `<div class="abs hud press blink">PAUSED</div><div class="abs hud hint">${PXBTN("a")} = RESUME · ${S.keys ? "" : `HOLD ${PXBTN("b")} OR PRESS `}ESC = QUIT GAME</div>`
     : S.gameWaiting ? `<div class="abs hud press blink">WAITING FOR THE GAME</div><div class="abs hud hint">IT HAS NOT OPENED YET: LOOK FOR A MACOS DIALOG ON ANY SCREEN · ESC = CANCEL</div>`
-    : `<div class="abs hud press">NOW PLAYING</div><div class="abs hud hint">${S.ps ? "PS" : "XBOX"} BUTTON = FULL SCREEN · HOLD IT = BACK HERE</div>`}`;
+    : `<div class="abs hud press">NOW PLAYING</div><div class="abs hud hint">${S.keys ? "F = FULL SCREEN, IN GAMES THAT SUPPORT IT" : `${S.ps ? "PS" : "XBOX"} BUTTON = FULL SCREEN · HOLD IT = BACK HERE`}</div>`}`;
 }
 function settingsItems() {
   const g = cur();
@@ -1139,7 +1255,7 @@ function settingsItems() {
       { label: S.confirm === "remove" ? `PRESS START AGAIN TO REMOVE ${g.name}` : `REMOVE: ${g.name} (TO TRASH)`, run: () => { if (S.confirm === "remove") { S.confirm = null; send("remove", { id: g.id }); } else { S.confirm = "remove"; beep("err"); } } },
     ] : []),
     { label: `SOUND EFFECTS: ${S.sound ? "ON" : "OFF"}`, run: () => { S.sound = !S.sound; store.set("sound", S.sound); } },
-    { label: "TEST CONTROLLER", run: () => setView("padtest") },
+    { label: S.keys ? "TEST KEYBOARD" : "TEST CONTROLLER", run: () => setView("padtest") },
     { label: "FULL SCREEN / WINDOW (CTRL+CMD+F)", run: () => send("fullscreen") },
     { label: "ABOUT COINSOLE", run: () => setView("about") },
     { label: "QUIT COINSOLE (CMD+Q)", run: () => send("quit") },
@@ -1188,13 +1304,16 @@ function start1P() {
   if (onAdd()) { beep("start"); send("add"); return; }
   const g = cur();
   if (!g) { beep("err"); return; }
-  if (S.running) {
+  if (S.running === g.id) {
     if (S.paused) { S.paused = false; beep("start"); send("resume"); render(); }
-    else toast("A GAME IS ALREADY RUNNING");
+    else toast("THIS GAME IS ALREADY RUNNING");
     return;
   }
   // Play costs one credit from the wallet (Coinsole takes it and puts it into the game)
   if (S.credits < 1) { beep("err"); toast("NO CREDITS LEFT: GET SOME AT THE TOKEN MACHINE"); setView("credits"); return; }
+  // another game is open: close it first; this one starts as soon as it has gone ("stopped")
+  if (S.running) { S.next = g.id; toast("CLOSING THE OTHER GAME"); stopGame("switching to " + g.name); return; }
+  if (S.web && S.web !== g.id) exitWeb();
   setTimeout(() => beep("start"), 120);
   S.gameWaiting = false;
   if (g.kind === "web") {
@@ -1210,14 +1329,30 @@ function screenRect() {
   const r = crtEl().getBoundingClientRect(), k = (S.theater ? 6 : 12) * stageScale;
   return [r.left + k, r.top + k, r.width - 2 * k, r.height - 2 * k];
 }
+function startGame(id) {
+  const i = S.games.findIndex((g) => g.id === id);
+  if (i < 0 || S.running) return;
+  S.sel = i; S.view = "home"; start1P();
+}
+// choosing another game closes the one playing on the screen
+function pickGame(n) {
+  if (S.web && S.games[n] && S.games[n].id !== S.web) exitWeb();
+  if (n === S.sel && S.view === "home") start1P(); else { S.sel = n; S.view = "home"; beep("move"); render(); }
+}
 function stopGame(why) { if (!S.running) return; beep("back"); send("stop", { why: why || "?" }); }
 // A game made for the page plays in its own layer, laid over whichever screen is showing (the home
 // screen or the big screen). Only its place and size change, so the game never restarts.
 function webFrame() { return document.querySelector("#webhost iframe"); }
+// Each web game has an origin of its own, so it cannot reach this page or another game; the sandbox also
+// keeps it from leaving its frame or opening windows. All it shares with this page are the arcade-… messages.
+// Built-in games used to keep their high score in this page's storage: it is handed to them in the address.
+const OLD_SCORES = { "Meteor Run": "coinsole.meteor-run", "Pixel Serpent": "coinsole.pixel-serpent" };
+function oldScore(id) { try { return +localStorage.getItem(OLD_SCORES[id]) || 0; } catch { return 0; } }
 function playWeb(g) {
   S.web = g.id;
-  const host = document.getElementById("webhost");
-  host.innerHTML = `<iframe src="${g.url}" allow="autoplay; fullscreen; gamepad"></iframe><button class="exit" id="exitBtn"><span class="sym">✕</span> ESC</button>`;
+  S.webOrigin = g.url.split("/").slice(0, 3).join("/");
+  const host = document.getElementById("webhost"), best = oldScore(g.id);
+  host.innerHTML = `<iframe sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock" allow="autoplay; fullscreen; gamepad" src="${g.url}${best ? "#best=" + best : ""}"></iframe><button class="exit" id="exitBtn"><span class="sym">✕</span> ESC</button>`;
   host.style.display = "block";
   document.getElementById("exitBtn").onclick = exitWeb;
   placeWeb();
@@ -1244,7 +1379,8 @@ function toggleBigScreen() {
 }
 // a game on the screen asks to leave (Esc inside the game)
 addEventListener("message", (e) => {
-  if (!e.data) return;
+  const frame = S.web && webFrame();
+  if (!frame || e.source !== frame.contentWindow || e.origin !== S.webOrigin || !e.data) return;   // only the game being played
   if (e.data.type === "arcade-exit") exitWeb();
   if (e.data.type === "arcade-bigscreen") webBigScreen(!S.theater);   // F inside the game
 });
@@ -1331,8 +1467,8 @@ if (!native) addEventListener("gamepadconnected", () => toast("CONTROLLER CONNEC
 function renderPadStatus() {
   updatePadScreen();
   document.getElementById("xprofile").classList.toggle("ok", !!S.pad.connected);
-  document.getElementById("xprofile").title = S.pad.connected ? S.pad.name + " · test the controller" : "No controller connected";
-  if ((effectiveSkin() === "ps") !== S.ps) render();
+  document.getElementById("xprofile").title = S.keys ? "Keyboard · test the keys" : S.pad.connected ? S.pad.name + " · test the controller" : "No controller connected";
+  if (effectiveSkin() !== S.skin) { render(); renderPadStatus(); }
 }
 // the buttons' names, in the order the controller reports them
 const PAD_NAMES = ["A", "B", "X", "Y", "LB", "RB", "LT", "RT", "VIEW", "MENU", "L3", "R3", "UP", "DOWN", "LEFT", "RIGHT", "XBOX"];
@@ -1367,6 +1503,7 @@ addEventListener("keydown", (e) => {
 });
 
 if (matchMedia("(prefers-reduced-motion: reduce)").matches) { boot.started = true; endIntro(); }      // "Reduce motion" in macOS: no animation
+buildKeyboard();
 send("list");
 setTimeout(playIntro, 1500);   // even if the game list is late (macOS may be asking for folder access)
 render();

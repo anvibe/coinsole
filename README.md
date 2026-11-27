@@ -14,7 +14,7 @@ Coinsole onto Applications. It is signed and notarised by Apple, and runs on mac
 
 - **Your games, one console.** Mac apps, web games (HTML) and game folders, each with a cover and an info card.
 - **Xbox and PlayStation controllers.** Bluetooth Xbox and PlayStation (DualSense, DualShock) controllers work everywhere. An on-screen controller mirrors your real one, and a test page shows every button and stick.
-- **Two looks.** Dark, with Xbox button names, and Light, with ✕ ○ □ △. Pick one in Settings or on the controller page, or leave it on Auto to follow your controller.
+- **Three looks.** Dark, with Xbox button names; Light, with ✕ ○ □ △; and Keyboard, a backlit keyboard that lights up as you type, for playing without a controller. Pick one in Settings or on the controller page, or leave it on Auto to follow your controller (the keyboard shows until you have connected one).
 - **Credits.** A token machine and a wallet. Play costs one credit, and continuing in a game costs another.
 - **Big screen.** Tap the Xbox or PS button at any time to see the game large, inside a neon arcade cabinet, and play it there.
 - **Window or full screen.** A normal Mac window, or a full-screen arcade mode (green button or Ctrl⌘F).
@@ -82,7 +82,7 @@ how a game can talk to Coinsole (controller, credits, big screen).
 ## How it's made
 
 - `main.swift`: the Mac app (AppKit and WKWebView). It finds and launches games, reads the controller (GameController), and keeps the credit wallet.
-- `ui/`: the interface, one web page (`index.html`) with both looks, the big screen, the token machine and the on-screen controller.
+- `ui/`: the interface, one web page (`index.html`) with all three looks, the big screen, the token machine and the on-screen controller.
 - `games/`: the built-in games, plain HTML5 canvas games.
 - `build.sh`, `make_dmg.sh` and `make_icon.swift`: build the app, make the installer and draw the icon.
 

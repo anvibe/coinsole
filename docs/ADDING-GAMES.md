@@ -30,6 +30,9 @@ Add a game by dropping it on the Coinsole window, choosing **Add game**, or copy
 }
 ```
 
+When you add a `.app` from somewhere else, the files with the same name next to it (cover, icon and
+info) come with it. In a folder that holds an app, files named after the app work too.
+
 `aspect` is the game's screen shape (`"4:3"`, `"16:9"`, `"8:7"`…). Coinsole's screens take that shape,
 so the game fills them without black bars. Without it, Coinsole assumes 16:9.
 
@@ -42,6 +45,16 @@ A web game is a normal web page. Coinsole loads it in a frame on its screen and 
 | `{ type: "arcade-pad", b: [...], a: [...] }` | Coinsole → game, via `postMessage` | The controller: `b` = 17 buttons (standard gamepad order: 0 A, 1 B, 2 X, 3 Y, 4 LB, 5 RB, 6 LT, 7 RT, 8 View, 9 Menu, 10 L3, 11 R3, 12–15 d-pad up/down/left/right, 16 Xbox), `a` = sticks `[leftX, leftY, rightX, rightY]`, −1…1, down is positive |
 | `{ type: "arcade-exit" }` | game → Coinsole, `parent.postMessage(…, "*")` | Leave the game (send it on Esc) |
 | `{ type: "arcade-bigscreen" }` | game → Coinsole | Big screen on/off (send it on F); the Xbox button does this too |
+
+These messages are all a web game shares with Coinsole. It runs in a sandboxed frame with an origin of its
+own, so it cannot reach Coinsole's page, open windows or dialogs, or read other games. In practice:
+
+- A game made of several files needs its own folder with `index.html`; load them with relative paths. A
+  single `.html` file cannot load files kept next to it, and symbolic links that lead out of a game's folder
+  are not followed.
+- What a game saves (`localStorage`) is private to it and tied to its file name in `Games/`: a renamed game
+  starts fresh. Data saved by Coinsole 1.0, where all games shared one store, is not carried over, except the
+  high scores of Meteor Run and Pixel Serpent.
 
 Starting a web game costs one credit. The built-in games in [`games/`](../games) use a small shared
 file, [`games/base.js`](../games/base.js) (a 320×240 pixel screen, keyboard and controller input,
