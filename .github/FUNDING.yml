@@ -1,0 +1,4 @@
+# Shows the "Sponsor" button on the GitHub repository page.
+# github: works once GitHub Sponsors is set up for this account (https://github.com/sponsors).
+github: [anvibe]
+custom: ["https://faustomelchiorre.com/"]

@@ -1,0 +1,1375 @@
+<!doctype html>
+<!-- Coinsole · Copyright © 2026 Fausto Melchiorre · SPDX-License-Identifier: AGPL-3.0-only -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coinsole</title>
+<style>
+  /* fonts are bundled with the app (no internet needed); both under the SIL Open Font License, see fonts/README.txt */
+  @font-face { font-family: "Press Start 2P"; font-style: normal; font-weight: 400; font-display: block; src: url("fonts/PressStart2P.woff2") format("woff2"); }
+  @font-face { font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: block; src: url("fonts/Inter.woff2") format("woff2"); }
+  :root {
+    --bg0: #0b0616; --bg1: #2a0f52;
+
+    --panel: rgba(28, 24, 40, 0.92); --panel-edge: rgba(255, 255, 255, 0.07);
+    --violet: #8b5cf6; --violet-glow: rgba(139, 92, 246, 0.75);
+    --cream: #f6ead0; --text: #ece9f4; --muted: #9d97b0;
+    --pixel: "Press Start 2P", ui-monospace, Menlo, monospace;
+    --ui: Inter, -apple-system, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background: #15121c;
+    color: var(--text); font-family: var(--ui);
+    user-select: none; -webkit-user-select: none; cursor: default;
+  }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  .abs { position: absolute; }
+
+  /* ---------- screen ---------- */
+  .crt { overflow: hidden; }
+  .crt .layer { position: absolute; inset: 0; }
+  .fx { pointer-events: none; z-index: 20; }
+  .fx.vignette { background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0,0,0,0.55) 85%, rgba(0,0,0,0.9) 100%); }
+  @keyframes flicker { 0%, 100% { opacity: 1; } 50% { opacity: 0.985; } }
+  .crt .content { animation: flicker 0.12s infinite; }
+
+  /* attract screen */
+  .cover { background-size: cover; background-position: 22% center; image-rendering: pixelated; filter: saturate(1.15) contrast(1.05); transition: opacity 0.3s; }
+  .cover.dim { filter: saturate(0.6) brightness(0.35); }
+  .attract-shade { background: linear-gradient(180deg, rgba(5,3,8,0.0) 45%, rgba(5,3,8,0.9) 88%); }
+  .hud { font-family: var(--pixel); text-transform: uppercase; z-index: 10; }
+  .hud.top { left: 52px; right: 52px; top: 40px; display: flex; justify-content: space-between; font-size: 16px; line-height: 1.6; text-shadow: 2px 2px 0 #000; }
+  .yellow { color: #ffe14d; } .pink { color: #ff4f9a; } .cyan { color: #5ff0ff; } .white { color: #fff; }
+  .hud.title { left: 24px; right: 24px; bottom: 96px; text-align: center; font-size: 26px; line-height: 1.4; color: #fff; text-shadow: 3px 3px 0 #000, 0 0 18px rgba(139,92,246,0.8); }
+  .hud.press { left: 0; right: 0; bottom: 56px; text-align: center; font-size: 16px; color: #ffe14d; text-shadow: 2px 2px 0 #000; }
+  .hud.hint { left: 0; right: 0; bottom: 26px; text-align: center; font-size: 10px; color: #b9b2cc; text-shadow: 1px 1px 0 #000; }
+  @keyframes blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+  .blink { animation: blink 1s steps(1) infinite; }
+
+  /* game grid + settings inside the screen */
+  .screen-page { padding: 40px 48px; z-index: 10; font-family: var(--pixel); overflow-y: auto; scrollbar-width: none; }
+  .screen-page::-webkit-scrollbar { display: none; }
+  .screen-page h2 { margin: 0 0 22px; font-size: 18px; color: #ffe14d; font-weight: 400; text-shadow: 2px 2px 0 #000; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .tile { border-radius: 10px; overflow: hidden; background: #120d1c; border: 2px solid rgba(255,255,255,0.08); }
+  .tile .img { height: 104px; background-size: cover; background-position: center; image-rendering: pixelated; }
+  .tile .name { padding: 9px 10px; font-size: 9px; line-height: 1.5; color: #ddd8ea; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile.sel { border-color: var(--violet); box-shadow: 0 0 0 2px var(--violet), 0 0 18px var(--violet-glow); }
+  .tile.sel .name { color: #fff; }
+  .menu-list { list-style: none; margin: 0; padding: 0; }
+  .menu-list li { font-size: 14px; padding: 13px 16px; margin-bottom: 6px; border-radius: 8px; color: #ddd8ea; }
+  .menu-list li.sel { background: rgba(139,92,246,0.35); color: #fff; box-shadow: inset 0 0 0 2px var(--violet); }
+  .menu-list li.sel::before { content: "▶ "; color: #ffe14d; }
+  .menu-list li.look { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+  .menu-list li.look.sel::before { margin-right: -4px; }
+  .menu-list .chip { font: 11px var(--pixel); color: #ddd8ea; padding: 9px 11px; margin: -7px 0; border-radius: 7px; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.22); }
+  .menu-list .chip:first-of-type { margin-left: auto; }
+  .menu-list .chip:hover { background: rgba(255,255,255,0.1); }
+  .menu-list .chip.on { color: #04120a; background: #3ddc84; box-shadow: none; }
+  body.skin-ps .menu-list .chip.on { color: #fff; background: #0070d1; }
+  .empty { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 22px; font-family: var(--pixel); }
+  .empty .big { font-size: 22px; color: #ffe14d; text-shadow: 2px 2px 0 #000; }
+  .empty .small { font-size: 11px; color: #c9c2da; line-height: 2; }
+  iframe.game { border: 0; width: 100%; height: 100%; background: #000; z-index: 5; }
+  .exit { right: 34px; top: 26px; z-index: 30; }
+  .toast { left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 40; font-family: var(--pixel); font-size: 10px; padding: 10px 14px; border-radius: 6px; background: rgba(0,0,0,0.85); border: 1px solid var(--violet); color: #fff; white-space: nowrap; opacity: 0; transition: opacity 0.25s; }
+  .toast.show { opacity: 1; }
+  .dropping .xframe { box-shadow: 0 0 0 4px #ffe14d, 0 0 40px #ffe14d; }
+
+  .pt-hint { text-align: center; font-size: 9px; color: #9d97b0; margin-top: 12px; }
+  /* =================== XBOX LOOK =================== */
+  body { background: radial-gradient(ellipse at 50% 110%, #12461d 0%, #07150a 45%, #040805 75%); }
+  #xstage { position: absolute; left: 50%; top: 50%; width: 1672px; height: 940px; transform-origin: 50% 50%; font-family: var(--ui); color: #f2f5f2; }
+  :root { --xg: #3ddc84; --xg2: #1fbf5b; --xglow: rgba(61, 220, 132, 0.55); --xcard: rgba(22, 30, 24, 0.92); --xedge: rgba(255, 255, 255, 0.07); }
+  .xarc { border-radius: 50%; border-top: 3px solid var(--xg); box-shadow: 0 -12px 50px var(--xglow), inset 0 12px 40px rgba(61,220,132,0.15); }
+  .xbrand { left: 72px; top: 32.3px; display: flex; align-items: center; gap: 22px; }
+  .xbrand .brand { width: 205.3px; height: 39.4px; color: #ffffff; filter: drop-shadow(0 0 12px rgba(61,220,132,0.35)); }
+  .xnav { left: 478px; top: 22px; display: flex; gap: 10px; }
+  .xnav button { display: flex; align-items: center; gap: 12px; height: 58px; padding: 0 26px; border-radius: 30px; font-size: 21px; font-weight: 600; color: #e6ece7; }
+  .xnav button svg, .xside svg { width: 30px; height: 30px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .xnav button:hover { background: rgba(255,255,255,0.05); }
+  .xnav button.on { box-shadow: inset 0 0 0 3px var(--xg), 0 0 22px var(--xglow); background: rgba(61,220,132,0.1); color: #fff; }
+  .xprofile { right: 62px; top: 18px; width: 66px; height: 66px; border-radius: 50%; background: #0d1a10; box-shadow: inset 0 0 0 3px var(--xg), 0 0 20px var(--xglow); display: grid; place-items: center; }
+  .xprofile svg { width: 38px; height: 26px; }
+  .xprofile .dot { position: absolute; right: -2px; bottom: 2px; width: 16px; height: 16px; border-radius: 50%; background: #5a5f5b; box-shadow: 0 0 0 3px #07150a; }
+  .xprofile.ok .dot { background: var(--xg); box-shadow: 0 0 0 3px #07150a, 0 0 12px var(--xg); }
+  .xwallet { right: 206px; top: 27px; height: 48px; padding: 0 20px 0 12px; border-radius: 24px; display: flex; align-items: center; gap: 10px; font: 700 22px var(--ui); color: #ffd84a; background: var(--xcard); box-shadow: inset 0 0 0 2px rgba(255,216,74,0.45); }
+  .xwallet svg { stroke: #ffd84a; fill: none; stroke-width: 1.8; }
+  .xwallet svg { width: 30px; height: 30px; }
+  .xwallet.on { box-shadow: inset 0 0 0 3px #ffd84a, 0 0 22px rgba(255,216,74,0.45); }
+  .coin-burst { animation: coinpop 0.5s ease; }
+  @keyframes coinpop { 0% { transform: scale(1); } 40% { transform: scale(1.25); } 100% { transform: scale(1); } }
+  .packs li { display: flex; justify-content: space-between; gap: 24px; }
+  .packs li .bonus { color: #ffd84a; }
+  .wallet-line { margin: 6px 0 18px; color: #ffd84a; }
+  .demo-note { margin-top: 16px; font-size: 0.75em; opacity: 0.6; }
+  .xpower { right: 146px; top: 30px; width: 42px; height: 42px; border-radius: 50%; color: #9aa69d; display: grid; place-items: center; }
+  .xpower:hover { color: #fff; background: rgba(255,255,255,0.06); }
+  .xpower svg { width: 26px; height: 26px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
+  /* the side columns start and end level with the outline of the game screen (y 124 to 651) */
+  .xinfo { left: 66px; top: 127px; width: 290px; }
+  .xicon { width: 80px; height: 80px; border-radius: 14px; background-size: cover; background-position: 22% center; image-rendering: pixelated; box-shadow: 0 0 0 3px var(--xg), 0 0 18px var(--xglow); background-color: #0d1a10; }
+  .xtitle { margin: 18px 0 8px; font-size: 40px; line-height: 1.05; font-weight: 800; letter-spacing: -0.5px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .xmeta { font-size: 17px; font-weight: 600; color: #e9efe9; min-height: 22px; }
+  .xdesc { margin: 12px 0 0; font-size: 16px; line-height: 1.5; color: #b7c2ba; height: 72px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+  .xbtns { left: 66px; top: 491px; width: 290px; height: 160px; display: flex; flex-direction: column; gap: 10px; }
+  .xbtn { display: flex; align-items: center; gap: 16px; height: 44px; flex: none; padding: 0 12px 0 20px; border-radius: 22px; font-size: 18px; font-weight: 600; background: var(--xcard); box-shadow: inset 0 0 0 1px var(--xedge); text-align: left; }
+  .xbtn:hover { background: #1d2a20; }
+  .xbtn.play { height: 52px; border-radius: 26px; font-size: 21px; font-weight: 700; color: #04120a; background: linear-gradient(180deg, #5af08f, #23c45c); box-shadow: 0 0 26px var(--xglow); }
+  .glyph { width: 36px; height: 36px; flex: none; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 20px; background: #0b110d; box-shadow: inset 0 0 0 2.5px currentColor; }
+  .glyph.a { color: var(--xg); } .glyph.b { color: #ff4d4d; } .glyph.x { color: #3d8bff; } .glyph.y { color: #ffd21f; }
+  .xbtn.play .glyph { color: #0b110d; background: rgba(4,18,10,0.15); box-shadow: inset 0 0 0 2.5px #0b110d; }
+  .xframe { left: 375px; top: 128px; width: 923px; height: 519px; border-radius: 36px; box-shadow: 0 0 0 4px var(--xg), 0 0 40px var(--xglow), 0 0 120px rgba(61,220,132,0.25); background: #000; }
+  .crt.xcrt { left: 375px; top: 128px; width: 923px; height: 519px; border-radius: 36px; box-shadow: none; background: #000; }
+  .xhint { left: 0; right: 0; bottom: 22px; text-align: center; font-family: var(--pixel); font-size: 13px; color: #fff; text-shadow: 2px 2px 0 #000; z-index: 10; }
+  .sym { font-family: -apple-system, system-ui, sans-serif; font-weight: 700; font-size: 1.6em; line-height: 0; vertical-align: -0.09em; }
+  .xhint .glyph { display: inline-grid; width: 26px; height: 26px; font-size: 14px; font-family: var(--ui); vertical-align: middle; margin-right: 8px; }
+  .xlist { left: 1330px; top: 124px; width: 304px; height: 527px; display: flex; flex-direction: column; }
+  .xlabel { font-size: 18px; line-height: 20px; font-weight: 600; color: #b7c2ba; margin: 0 0 14px 2px; }
+  .xrows { display: flex; flex-direction: column; gap: 12px; }
+  .xrow { display: flex; align-items: center; gap: 18px; height: 76px; padding: 0 10px; border-radius: 16px; background: var(--xcard); box-shadow: inset 0 0 0 1px var(--xedge); text-align: left; font-size: 20px; font-weight: 600; }
+  .xrow .th { width: 96px; height: 58px; border-radius: 10px; flex: none; background-size: cover; background-position: center; image-rendering: pixelated; background-color: #0d1a10; }
+  .xrow .nm { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.2; }
+  .xrow.sel { box-shadow: inset 0 0 0 3px var(--xg), 0 0 22px var(--xglow); background: rgba(61,220,132,0.12); }
+  .xadd { margin-top: auto; flex: none; width: 100%; height: 76px; border-radius: 16px; display: flex; align-items: center; gap: 22px; padding: 0 26px; font-size: 20px; font-weight: 600; background: var(--xcard); box-shadow: inset 0 0 0 1px var(--xedge); }
+  .xadd i { font-style: normal; font-size: 30px; font-weight: 300; }
+  .xadd.sel { box-shadow: inset 0 0 0 3px var(--xg), 0 0 22px var(--xglow); background: rgba(61,220,132,0.12); }
+  .xpad { left: 381px; top: 640px; width: 910px; height: 622px; overflow: visible; transition: left 0.35s ease, top 0.35s ease, width 0.35s ease, height 0.35s ease; }
+  .xpadinfo { display: none; left: 0; right: 0; top: 112px; text-align: center; }
+  .xpadinfo .n { font: 700 30px var(--ui); color: #fff; }
+  .xpadinfo .n small { font-size: 20px; font-weight: 600; color: var(--xg); margin-left: 14px; }
+  .xpadinfo .l { margin-top: 10px; min-height: 30px; font: 700 22px var(--ui); color: var(--xg); text-shadow: 0 0 14px var(--xglow); letter-spacing: 1px; }
+  .xpadinfo .h { margin-top: 6px; font: 600 15px var(--ui); color: #8e9a91; letter-spacing: 1px; }
+  /* controller page: the controller takes the middle of the screen */
+  body.xpadview .xframe, body.xpadview .xcrt, body.xpadview .xinfo, body.xpadview .xbtns, body.xpadview .xlist, body.xpadview .xfoot { display: none; }
+  body.xpadview .xpadinfo { display: block; }
+  body.xpadview .xpad { left: 326px; top: 266px; width: 1020px; height: 697px; }
+  /* the look can be switched right on the controller page */
+  .xpadinfo .looks { position: relative; z-index: 5; display: inline-flex; gap: 4px; margin-top: 14px; padding: 4px; border-radius: 26px; background: var(--xcard); box-shadow: inset 0 0 0 1px var(--xedge), 0 4px 14px rgba(0,0,0,0.12); }
+  .xpadinfo .looks button { height: 36px; min-width: 88px; padding: 0 20px; border-radius: 20px; font: 700 15px var(--ui); color: #cfd8d1; }
+  .xpadinfo .looks button:hover { background: rgba(128,150,140,0.18); }
+  .xpadinfo .looks button.on { color: #04120a; background: var(--xg); box-shadow: 0 0 16px var(--xglow); }
+  body.skin-ps .xpadinfo .looks button { color: #3a4458; }
+  body.skin-ps .xpadinfo .looks button.on { color: #fff; }
+  #xpad { --pa: var(--xg); --paglow: var(--xglow); }
+  #xpad .body { filter: drop-shadow(0 -6px 24px rgba(61, 220, 132, 0.30)); }
+  #xpad .accent { fill: none; stroke: var(--pa); stroke-width: 7; filter: drop-shadow(0 0 7px var(--paglow)); }
+  #xpad .rim, #xpad .rimglow { fill: none; stroke: var(--pa); }
+  #xpad .glowline { fill: none; stroke: var(--pa); stroke-width: 7; stroke-linecap: round; filter: drop-shadow(0 0 7px var(--pa)); }
+  #xpad .led { fill: var(--pa); filter: drop-shadow(0 0 6px var(--pa)); }
+  #xpad .spark { fill: var(--pa); filter: drop-shadow(0 0 5px var(--pa)); }
+  #xpad .bumper { fill: url(#gBumper); transition: fill 0.05s; }
+  #xpad .bumper.on { fill: var(--pa); }
+  #xpad .trigger { fill: url(#gTrig); }
+  .xpad .xstick { transition: transform 0.04s linear; }
+  .xpad .xstick.on .ring { stroke: var(--xg); stroke-width: 5; filter: drop-shadow(0 0 10px var(--xg)); }
+  #xpad .xstick.on .ring { stroke: var(--pa); stroke-width: 9; filter: drop-shadow(0 0 10px var(--pa)); }
+  .xpad .arm { fill: transparent; transition: fill 0.05s; }
+  .xpad .arm.on { fill: rgba(61,220,132,0.9); }
+  #xpad .arm.on { fill: var(--pa); filter: drop-shadow(0 0 8px var(--paglow)); }
+  .xpad .face > g, .xpad .small, .xpad .guide { transition: transform 0.05s; }
+  .xpad .face.on .cap { fill: var(--c); filter: drop-shadow(0 0 14px var(--c)); }
+  .xpad .face.on .letter { fill: #0b0c0c; }
+  .xpad .letter { font: 800 42px var(--ui); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+  .xpad .small.on .cap, .xpad .guide.on .cap { fill: var(--xg); filter: drop-shadow(0 0 10px var(--xg)); }
+  #xpad .small.on .cap, #xpad .guide.on .cap { fill: var(--pa); filter: drop-shadow(0 0 12px var(--pa)); }
+  #xpad .letter { font-size: 64px; filter: drop-shadow(0 3px 2px rgba(0,0,0,0.7)); }
+  #xpad .face.on .letter { filter: none; }
+  #xpad .guide .dome { transition: transform 0.05s; }
+  #xpad .guide.on { transform: none; }
+  #xpad .guide.on .dome { transform: translateY(4px); }
+  #xpad #xp-dash text { font-family: var(--pixel); text-anchor: middle; dominant-baseline: central; }
+  #xpad #xp-dlabel { font-size: 22px; fill: var(--pa); }
+  #xpad #xp-dnum { font-size: 68px; fill: #ffd84d; filter: drop-shadow(0 0 8px rgba(255, 216, 77, 0.45)); }
+  #xpad #xp-dpad { font-size: 19px; fill: #cfe9da; }
+  #xpad #xp-dhint { font-size: 19px; fill: #fff; }
+  #xpad #xp-gname { font: 700 25px var(--ui); fill: #fff; text-anchor: middle; dominant-baseline: central; letter-spacing: 0.5px; }
+  #xpad #xp-game.playing #xp-gname { fill: var(--pa); }
+  .xfoot { bottom: 58px; display: flex; align-items: center; gap: 14px; font-size: 19px; font-weight: 600; color: #dfe6e0; }
+  .xfoot .key { display: inline-grid; place-items: center; min-width: 40px; height: 28px; border-radius: 8px; box-shadow: inset 0 0 0 2px #cfd6d0; font-size: 15px; font-weight: 700; }
+  .xfoot .glyph { width: 32px; height: 32px; font-size: 17px; }
+  .xfoot span.gap { width: 26px; }
+  body.booting #xstage { opacity: 0; }              /* dark until the launch animation starts */
+  .xword { display: inline-block; white-space: pre; }
+  .xfoot.xbig { bottom: 108px; height: 40px; gap: 10px; padding: 0 16px; margin-right: -16px; border-radius: 20px; font-family: var(--ui); }
+  .xfoot.xbig:hover { background: rgba(128,150,140,0.16); }
+  .xfoot.xbig svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .grid { grid-template-columns: repeat(4, 1fr); }
+  .tile .img { height: 120px; }
+  .xinfo-card { padding: 46px 56px; z-index: 10; }
+  .xinfo-card h2 { margin: 0 0 6px; font: 800 38px var(--ui); color: #fff; }
+  .xinfo-card .m { font: 600 18px var(--ui); color: var(--xg); margin-bottom: 18px; }
+  .xinfo-card p { font: 400 19px/1.6 var(--ui); color: #cfd8d1; margin: 0 0 18px; max-width: 700px; }
+  .xinfo-card .c { font: 600 16px/1.7 var(--ui); color: #fff; background: rgba(61,220,132,0.1); border-radius: 12px; padding: 12px 16px; box-shadow: inset 0 0 0 1px rgba(61,220,132,0.35); }
+
+  /* ---------- big screen: a game in full screen, inside a neon arcade cabinet (Xbox green) ---------- */
+  #tstage { display: none; position: absolute; left: 50%; top: 50%; width: 1672px; height: 940px; transform-origin: 50% 50%; overflow: hidden;
+    background: radial-gradient(ellipse at 50% 50%, #0f2a18, #040a06 70%); }
+  body.theater #xstage { display: none !important; }
+  body.theater #tstage { display: block; }
+  .t-shape { left: 0; top: 0; width: 1672px; height: 940px; overflow: visible; }
+  .t-name { left: 0; right: 0; top: 45px; height: 64px; display: flex; align-items: center; justify-content: center; gap: 24px; }
+  .t-name b { font: 26px var(--pixel); color: #eafff1; letter-spacing: 3px; white-space: nowrap;
+    text-shadow: 0 0 10px #3ddc84, 0 0 24px rgba(61,220,132,0.7), 3px 3px 0 #0e6b2f; }
+  .t-name svg { width: 42px; height: 28px; flex: none; filter: drop-shadow(0 0 8px rgba(61,220,132,0.6)); }
+  .t-crt .idle { position: absolute; inset: 0; background-size: cover; background-position: center; image-rendering: pixelated; }
+  .t-crt .go { position: absolute; left: 0; right: 0; bottom: 24px; font-size: 15px; color: #fff; text-shadow: 2px 2px 0 #000, 0 0 10px #000; }
+  .t-crt { border-radius: 18px; left: 416px; top: 162px; width: 840px; height: 630px; background: #000; overflow: hidden; }
+  .t-crt .msg { position: absolute; inset: 0; display: grid; place-content: center; gap: 22px; text-align: center; font: 22px var(--pixel); color: #3ddc84; text-shadow: 0 0 12px rgba(61,220,132,0.7); }
+  .t-crt .msg small { font-size: 13px; color: #cfe9d6; text-shadow: none; }
+  .t-foot { left: 561px; width: 550px; top: 860px; height: 56px; display: flex; align-items: center; justify-content: center; gap: 22px; font: 13px var(--pixel); color: #e3f3e8; letter-spacing: 1px; }
+  .t-foot b { color: #3ddc84; font-weight: normal; text-shadow: 0 0 10px rgba(61,220,132,0.8); margin-left: 10px; }
+  .t-foot .sep { width: 2px; height: 26px; background: rgba(61,220,132,0.4); }
+  .t-foot .pad { display: flex; align-items: center; gap: 12px; font-size: 10px; white-space: nowrap; }
+  .t-foot .pad svg { width: 28px; height: 19px; fill: #eafff1; }
+  .t-hint { left: 0; right: 0; top: 926px; text-align: center; font: 9px var(--pixel); color: #4f7a5c; letter-spacing: 1px; }
+  #webhost { display: none; position: fixed; z-index: 40; background: #000; overflow: hidden; isolation: isolate; transform: translateZ(0); }
+  #webhost iframe { display: block; width: 100%; height: 100%; border: 0; }
+  /* the exit button shows for a moment, then only under the mouse, so it never sits on the game's score */
+  #webhost .exit { position: absolute; top: 12px; right: 18px; padding: 4px 8px; border-radius: 6px; font: 10px var(--pixel); color: #fff; background: rgba(0,0,0,0.55); opacity: 0; transition: opacity 0.2s; animation: exitHint 3s ease; }
+  #webhost:hover .exit { opacity: 0.6; }
+  #webhost .exit:hover { opacity: 1; }
+  @keyframes exitHint { 0%, 70% { opacity: 0.6; } 100% { opacity: 0; } }
+  .screen-page.about { text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+  .about .ab-v { color: #9aa69d; font-size: 0.75em; }
+  .about .ab-by { margin-top: 10px; color: #f2f5f2; }
+  .about .ab-link { font: inherit; color: #3ddc84; text-decoration: underline; text-underline-offset: 6px; background: none; border: 0; cursor: pointer; }
+  .about .ab-small { margin-top: 10px; font-size: 0.6em; line-height: 2; color: #9aa69d; }
+
+  /* ---------- PlayStation look: the Xbox look's layout in a light theme with PlayStation blue ---------- */
+  #pspad { display: none; }
+  body.skin-ps #pspad { display: block; }
+  body.skin-ps #xpad { display: none; }
+  body.skin-ps { --xg: #0070d1; --xg2: #2e8bff; --xglow: rgba(0, 112, 209, 0.28); --xcard: #ffffff; --xedge: rgba(20, 40, 80, 0.08);
+    background: radial-gradient(ellipse at 50% 115%, #cfe0f7 0%, #eef2f8 45%, #f7f8fb 75%); }
+  body.skin-ps #xstage { color: #1b2233; }
+  body.skin-ps .xarc { border-top-color: rgba(0,112,209,0.55); box-shadow: 0 -10px 40px rgba(0,112,209,0.14), inset 0 10px 30px rgba(0,112,209,0.06); }
+  body.skin-ps .xbrand .brand { color: #1b2233; filter: none; }
+  body.skin-ps .xnav button { color: #3a4458; }
+  body.skin-ps .xnav button:hover { background: rgba(20,40,80,0.05); }
+  body.skin-ps .xnav button.on { background: rgba(0,112,209,0.08); color: #0b1f3f; box-shadow: inset 0 0 0 2.5px var(--xg); }
+  body.skin-ps .xprofile { background: #fff; box-shadow: inset 0 0 0 2.5px var(--xg), 0 6px 18px rgba(0,60,140,0.15); }
+  body.skin-ps .xprofile .padicon path { fill: #1b2233; }
+  body.skin-ps .xprofile .dot { box-shadow: 0 0 0 3px #fff; }
+  body.skin-ps .xprofile.ok .dot { box-shadow: 0 0 0 3px #fff, 0 0 8px var(--xg); }
+  body.skin-ps .xwallet { color: #a66a00; background: #fff; box-shadow: inset 0 0 0 2px rgba(166,106,0,0.35), 0 4px 14px rgba(20,40,80,0.08); }
+  body.skin-ps .xwallet svg { stroke: #a66a00; }
+  body.skin-ps .xpower { color: #6b7488; }
+  body.skin-ps .xpower:hover { color: #1b2233; background: rgba(20,40,80,0.06); }
+  body.skin-ps .xicon { box-shadow: 0 0 0 3px #fff, 0 8px 22px rgba(0,60,140,0.2); }
+  body.skin-ps .xmeta { color: #3a4458; }
+  body.skin-ps .xdesc { color: #5b6478; }
+  body.skin-ps .xbtn { color: #1b2233; box-shadow: inset 0 0 0 1px rgba(20,40,80,0.1), 0 2px 10px rgba(20,40,80,0.06); }
+  body.skin-ps .xbtn:hover { background: #f0f4fa; }
+  body.skin-ps .xbtn.play { color: #fff; background: linear-gradient(180deg, #2e8bff, #0070d1); box-shadow: 0 8px 24px rgba(0,112,209,0.35); }
+  body.skin-ps .xbtn.play .glyph { color: #fff; background: rgba(255,255,255,0.16); box-shadow: inset 0 0 0 2.5px #fff; }
+  body.skin-ps .glyph { background: #fff; font-family: -apple-system, system-ui, sans-serif; }
+  body.skin-ps .glyph.a { color: #3d6fe6; } body.skin-ps .glyph.b { color: #e2404f; } body.skin-ps .glyph.x { color: #c8399a; } body.skin-ps .glyph.y { color: #12a07e; }
+  body.skin-ps .xhint .glyph { background: rgba(0,0,0,0.4); color: #fff; box-shadow: inset 0 0 0 2px #fff; }
+  body.skin-ps .xframe { box-shadow: 0 0 0 4px #fff, 0 0 0 6px rgba(0,112,209,0.5), 0 24px 60px rgba(0,50,120,0.22); }
+  body.skin-ps .xlabel { color: #5b6478; }
+  body.skin-ps .xrow, body.skin-ps .xadd { color: #1b2233; box-shadow: inset 0 0 0 1px rgba(20,40,80,0.09), 0 2px 10px rgba(20,40,80,0.05); }
+  body.skin-ps .xrow .th { background-color: #dfe6f0; }
+  body.skin-ps .xrow.sel, body.skin-ps .xadd.sel { background: #fff; box-shadow: inset 0 0 0 2.5px var(--xg), 0 8px 22px rgba(0,112,209,0.18); }
+  body.skin-ps .xfoot { color: #3a4458; }
+  body.skin-ps .xfoot .key { box-shadow: inset 0 0 0 2px #9aa3b5; }
+  body.skin-ps .xpadinfo .n { color: #1b2233; }
+  body.skin-ps .xpadinfo .l { text-shadow: none; }
+  body.skin-ps .xpadinfo .h { color: #6b7488; }
+  /* big screen in the PlayStation look: a light cabinet with a soft PlayStation-blue edge */
+  body.skin-ps #tstage { background: radial-gradient(ellipse at 50% 50%, #ffffff, #e9eef6 70%); }
+  body.skin-ps #tstage .tb-body { fill: url(#tBodyPs); }
+  body.skin-ps #tstage .tb-glow-w { stroke: url(#tEdgePs); opacity: 0.22; }
+  body.skin-ps #tstage .tb-glow { stroke: url(#tEdgePs); opacity: 0.35; }
+  body.skin-ps #tstage .tb-edge { stroke: url(#tEdgePs); }
+  body.skin-ps #tstage .tb-hi { stroke: #ffffff; opacity: 1; }
+  body.skin-ps #tstage .tb-inner use { stroke: url(#tEdgePs); opacity: 0.3; }
+  body.skin-ps #tstage .tb-flare { fill: url(#tFlarePs); }
+  body.skin-ps #tstage .tb-bezel { fill: url(#tBezelPs); stroke: rgba(20,40,80,0.08); filter: drop-shadow(0 10px 30px rgba(20,50,110,0.12)); }
+  body.skin-ps #tstage .tf-glow { stroke: #2e8bff; opacity: 0.22; }
+  body.skin-ps #tstage .tf-line { stroke: #0070d1; }
+  body.skin-ps #tstage .tf-hi { stroke: #ffffff; opacity: 0.9; }
+  body.skin-ps #tstage .tb-panel { fill: #ffffff; stroke: rgba(0,112,209,0.35); filter: drop-shadow(0 6px 16px rgba(20,50,110,0.12)); }
+  body.skin-ps .t-name b { color: #1b2233; text-shadow: none; }
+  body.skin-ps .t-name svg { filter: drop-shadow(0 1px 0 rgba(20,40,80,0.35)); }
+  body.skin-ps .t-foot { color: #3a4458; }
+  body.skin-ps .t-foot b { color: #0070d1; text-shadow: none; }
+  body.skin-ps .t-foot .sep { background: rgba(0,112,209,0.3); }
+  body.skin-ps .t-foot .pad svg { fill: #1b2233; }
+  /* the DualSense drawing: pressed parts light up in PlayStation blue */
+  #pspad .ptrig, #pspad .bump { stroke: #07080a; stroke-width: 2.5; transition: fill 0.05s; }
+  #pspad .ptrig { fill: url(#pnTrig); }
+  #pspad .bump { fill: url(#pnBump); }
+  #pspad .bump.on { fill: var(--xg); stroke: var(--xg); }
+  #pspad .lampline { fill: none; stroke: url(#pnLamp); stroke-width: 6; stroke-linecap: round; filter: drop-shadow(0 0 4px var(--xg)); }
+  #pspad .psmb .bg, #pspad .dkey .k, #pspad .face .cap { fill: url(#pnCap); transition: fill 0.05s; }
+  #pspad .psmb.on .bg { fill: var(--xg); }
+  #pspad .dkey .arr { fill: #9096a4; }
+  #pspad .dkey.on .k { fill: var(--xg); }
+  #pspad .dkey.on .arr { fill: #fff; }
+  #pspad .face .cap { stroke: #3b404a; stroke-width: 3; }
+  #pspad .face .sym { stroke: #8b909c; }
+  #pspad .face.on .cap { fill: var(--xg); filter: drop-shadow(0 0 10px var(--xg)); }
+  #pspad .face.on .sym { stroke: #fff; }
+  #pspad .home .cap { fill: url(#pnSkirt); stroke: #3a3f48; stroke-width: 3; transition: fill 0.05s; }
+  #pspad .home.on .cap { fill: var(--xg); stroke: var(--xg2); }
+  #pspad .xstick { transition: transform 0.04s linear; }
+  #pspad .xstick.on .ring { stroke: var(--xg2); stroke-width: 10; filter: drop-shadow(0 0 10px var(--xg)); }
+  #pspad #ps-dash text { font-family: var(--pixel); text-anchor: middle; dominant-baseline: central; }
+  #pspad .dl { font-size: 22px; fill: #7fbaff; } #pspad .dn { font-size: 64px; fill: #ffd84d; }
+  #pspad .dp { font-size: 19px; fill: #dbe8ff; } #pspad .dh { font-size: 19px; fill: #fff; }
+  #pspad #ps-game text { font-family: var(--ui); dominant-baseline: central; fill: #fff; }
+  #pspad #ps-game .gl { font-size: 17px; font-weight: 600; fill: #9cc7ff; }
+  #pspad #ps-game .gn { font-size: 22px; font-weight: 700; }
+  #pspad #ps-game .tv { font-size: 30px; font-weight: 800; text-anchor: middle; }
+  #pspad #ps-game .tv.small { font-size: 21px; }
+  #pspad #ps-game .tl { font-size: 16px; font-weight: 600; text-anchor: middle; fill: #c6dcff; }
+</style>
+</head>
+<body class="booting">
+<!-- =================== XBOX LOOK =================== -->
+<div id="xstage">
+  <div class="abs xarc" style="left:-520px;top:700px;width:2712px;height:700px"></div>
+  <div class="abs xarc" style="left:-200px;top:760px;width:2072px;height:600px;opacity:0.5"></div>
+  <div class="abs xbrand"><svg class="brand" viewBox="0 -2.5 109.5 21" fill="none" role="img" aria-label="Coinsole"><g shape-rendering="crispEdges"><g transform="translate(0 -2.5) scale(1.3125)"><g transform="translate(8 8) scale(1.142857) translate(-8 -8)"><path d="M7 1H9V2H7ZM4 2H12V3H4ZM3 3H13V4H3ZM2 4H14V5H2ZM2 5H14V6H2ZM2 6H14V7H2ZM1 7H15V8H1ZM1 8H15V9H1ZM2 9H14V10H2ZM2 10H14V11H2ZM2 11H14V12H2ZM3 12H13V13H3ZM4 13H12V14H4ZM7 14H9V15H7Z" fill="#C78F00"/><path d="M7 2H9V3H7ZM5 3H11V4H5ZM4 4H12V5H4ZM3 5H13V6H3ZM3 6H13V7H3ZM2 7H14V8H2ZM2 8H14V9H2ZM3 9H13V10H3ZM3 10H13V11H3ZM4 11H12V12H4ZM5 12H11V13H5ZM7 13H9V14H7Z" fill="#FFD21F"/><path d="M6 4H7V5H6ZM6 5H8V6H6ZM6 6H9V7H6ZM6 7H10V8H6ZM6 8H10V9H6ZM6 9H9V10H6ZM6 10H8V11H6ZM6 11H7V12H6Z" fill="#0B0B0C"/></g></g><g transform="translate(27 16) scale(1 1.5238) translate(0 -17)" fill="currentColor"><rect x="1.50" y="6.50" width="7.50" height="1.50"/><rect x="0.00" y="8.00" width="3.00" height="1.50"/><rect x="7.50" y="8.00" width="3.00" height="1.50"/><rect x="0.00" y="9.50" width="3.00" height="1.50"/><rect x="0.00" y="11.00" width="3.00" height="1.50"/><rect x="0.00" y="12.50" width="3.00" height="1.50"/><rect x="0.00" y="14.00" width="3.00" height="1.50"/><rect x="7.50" y="14.00" width="3.00" height="1.50"/><rect x="1.50" y="15.50" width="7.50" height="1.50"/><rect x="13.50" y="9.50" width="7.50" height="1.50"/><rect x="12.00" y="11.00" width="3.00" height="1.50"/><rect x="19.50" y="11.00" width="3.00" height="1.50"/><rect x="12.00" y="12.50" width="3.00" height="1.50"/><rect x="19.50" y="12.50" width="3.00" height="1.50"/><rect x="12.00" y="14.00" width="3.00" height="1.50"/><rect x="19.50" y="14.00" width="3.00" height="1.50"/><rect x="13.50" y="15.50" width="7.50" height="1.50"/><rect x="24.00" y="6.50" width="3.00" height="1.50"/><rect x="24.00" y="9.50" width="3.00" height="1.50"/><rect x="24.00" y="11.00" width="3.00" height="1.50"/><rect x="24.00" y="12.50" width="3.00" height="1.50"/><rect x="24.00" y="14.00" width="3.00" height="1.50"/><rect x="25.50" y="15.50" width="3.00" height="1.50"/><rect x="30.00" y="9.50" width="9.00" height="1.50"/><rect x="30.00" y="11.00" width="3.00" height="1.50"/><rect x="37.50" y="11.00" width="3.00" height="1.50"/><rect x="30.00" y="12.50" width="3.00" height="1.50"/><rect x="37.50" y="12.50" width="3.00" height="1.50"/><rect x="30.00" y="14.00" width="3.00" height="1.50"/><rect x="37.50" y="14.00" width="3.00" height="1.50"/><rect x="30.00" y="15.50" width="3.00" height="1.50"/><rect x="37.50" y="15.50" width="3.00" height="1.50"/><rect x="43.50" y="9.50" width="9.00" height="1.50"/><rect x="42.00" y="11.00" width="3.00" height="1.50"/><rect x="43.50" y="12.50" width="7.50" height="1.50"/><rect x="49.50" y="14.00" width="3.00" height="1.50"/><rect x="42.00" y="15.50" width="9.00" height="1.50"/><rect x="55.50" y="9.50" width="7.50" height="1.50"/><rect x="54.00" y="11.00" width="3.00" height="1.50"/><rect x="61.50" y="11.00" width="3.00" height="1.50"/><rect x="54.00" y="12.50" width="3.00" height="1.50"/><rect x="61.50" y="12.50" width="3.00" height="1.50"/><rect x="54.00" y="14.00" width="3.00" height="1.50"/><rect x="61.50" y="14.00" width="3.00" height="1.50"/><rect x="55.50" y="15.50" width="7.50" height="1.50"/><rect x="66.00" y="6.50" width="3.00" height="1.50"/><rect x="66.00" y="8.00" width="3.00" height="1.50"/><rect x="66.00" y="9.50" width="3.00" height="1.50"/><rect x="66.00" y="11.00" width="3.00" height="1.50"/><rect x="66.00" y="12.50" width="3.00" height="1.50"/><rect x="66.00" y="14.00" width="3.00" height="1.50"/><rect x="67.50" y="15.50" width="3.00" height="1.50"/><rect x="73.50" y="9.50" width="7.50" height="1.50"/><rect x="72.00" y="11.00" width="3.00" height="1.50"/><rect x="79.50" y="11.00" width="3.00" height="1.50"/><rect x="72.00" y="12.50" width="10.50" height="1.50"/><rect x="72.00" y="14.00" width="3.00" height="1.50"/><rect x="73.50" y="15.50" width="7.50" height="1.50"/></g></g></svg></div>
+  <nav class="abs xnav" id="xnav"><button data-view="home"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h4.5v-5.5h4v5.5h4.5V10"/></svg>Home</button><button data-view="games"><svg viewBox="0 0 24 24"><path d="M7 8h10a5 5 0 0 1 4.8 6.4l-.9 3a2.5 2.5 0 0 1-4.2 1L14.5 16h-5l-2.2 2.4a2.5 2.5 0 0 1-4.2-1l-.9-3A5 5 0 0 1 7 8Z"/><path d="M7.5 11v4M5.5 13h4"/><circle cx="15.5" cy="12" r=".6"/><circle cx="17.5" cy="14" r=".6"/></svg>Games</button><button data-view="upload"><svg viewBox="0 0 24 24"><path d="M7 18H6.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 17.6 8.6 4.7 4.7 0 0 1 17.5 18H17"/><path d="M12 20v-8M8.8 14.8 12 11.6l3.2 3.2"/></svg>Upload</button><button data-view="favorites"><svg viewBox="0 0 24 24"><path d="M12 20s-7.5-4.4-7.5-10A4.3 4.3 0 0 1 12 7.5 4.3 4.3 0 0 1 19.5 10c0 5.6-7.5 10-7.5 10Z"/></svg>Favorites</button><button data-view="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>Settings</button></nav>
+  <button class="abs xwallet" data-view="credits" id="xwallet" title="Credits — token machine"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5.5"/><path d="M12 9.5v5"/></svg><b id="xwalletN">0</b></button>
+  <button class="abs xpower" data-view="exit" title="Exit Coinsole"><svg viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></button>
+  <button class="abs xprofile" id="xprofile" data-view="padtest" title="Controller"><svg class="padicon" viewBox="0 0 24 16" aria-hidden="true"><path fill="#ffffff" d="M6 1h12a5.5 5.5 0 0 1 5.3 7l-1 3.6a3 3 0 0 1-5.1 1.3L14.5 10.5h-5L6.8 12.9a3 3 0 0 1-5.1-1.3l-1-3.6A5.5 5.5 0 0 1 6 1Zm0 3.2v1.6H4.4v1.6H6V9h1.6V7.4h1.6V5.8H7.6V4.2Zm11.2.6a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm-2 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"/></svg><span class="dot"></span></button>
+  <section class="abs xinfo"><div class="xicon" id="xicon"></div><div class="xtitle" id="xtitle"></div><div class="xmeta" id="xmeta"></div><p class="xdesc" id="xdesc"></p></section>
+  <div class="abs xbtns">
+    <button class="xbtn play" id="xplay"><span class="glyph a">A</span>Play</button>
+    <button class="xbtn" id="xfav"><span class="glyph x">X</span><span id="xfavlabel">Favorite</span></button>
+    <button class="xbtn" id="xinfoBtn"><span class="glyph y">Y</span>Game info</button>
+  </div>
+  <div class="abs xframe" id="xframe"></div>
+  <div class="abs xpadinfo" id="xpadinfo"><div class="n" id="xpadname"></div><div class="l" id="xpadlast"></div><div class="h">HOLD B OR PRESS ESC TO GO BACK</div><div class="looks" id="xpadlooks" role="group" aria-label="Look"></div></div>
+  <div class="abs crt xcrt" id="xcrt"><div class="layer content" id="xscreen"></div><div class="abs toast" id="toast"></div><div class="layer fx vignette" style="opacity:0.5"></div></div>
+  <aside class="abs xlist"><div class="xlabel">More games</div><div class="xrows" id="xrows"></div><button class="xadd" id="xadd"><i>＋</i>Add game</button></aside>
+  <svg class="abs xpad" id="xpad" viewBox="96 -6 1170 800">
+    <defs>
+      <linearGradient id="xnBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a4e53"/><stop offset="0.45" stop-color="#2b2e32"/><stop offset="1" stop-color="#121416"/></linearGradient>
+      <linearGradient id="xnGrip" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#24272a"/><stop offset="1" stop-color="#0b0c0d"/></linearGradient>
+      <pattern id="xnWeave" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" rx="2" fill="#fff" opacity="0.07"/><rect x="7" y="7" width="6" height="6" rx="2" fill="#000" opacity="0.45"/></pattern>
+      <pattern id="xnDots" width="17" height="11" patternUnits="userSpaceOnUse"><circle cx="4" cy="4" r="1.8" fill="#3ddc84"/></pattern>
+      <linearGradient id="gBumper" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4b5055"/><stop offset="1" stop-color="#16181b"/></linearGradient>
+      <linearGradient id="gTrig" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#e4e8ec"/><stop offset="0.45" stop-color="#7f868d"/><stop offset="1" stop-color="#2d3135"/></linearGradient>
+      <radialGradient id="xnWellRing" cx="0.4" cy="0.3" r="0.75"><stop offset="0" stop-color="#4c5156"/><stop offset="0.75" stop-color="#2a2d31"/><stop offset="1" stop-color="#181a1d"/></radialGradient>
+      <radialGradient id="xnSkirt" cx="0.45" cy="0.3" r="0.75"><stop offset="0" stop-color="#3c4044"/><stop offset="1" stop-color="#0c0d0f"/></radialGradient>
+      <radialGradient id="xnRubber" cx="0.4" cy="0.3" r="0.8"><stop offset="0" stop-color="#55595e"/><stop offset="0.7" stop-color="#25272a"/><stop offset="1" stop-color="#151618"/></radialGradient>
+      <linearGradient id="xnKnurl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b9096"/><stop offset="1" stop-color="#1a1c1e"/></linearGradient>
+      <linearGradient id="xnCapTop" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2d3033"/><stop offset="0.55" stop-color="#54585c"/><stop offset="1" stop-color="#303336"/></linearGradient>
+      <radialGradient id="xnButton" cx="0.4" cy="0.28" r="0.85"><stop offset="0" stop-color="#3f4347"/><stop offset="0.65" stop-color="#16181a"/><stop offset="1" stop-color="#050607"/></radialGradient>
+      <linearGradient id="xnScreen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#050a07"/><stop offset="0.55" stop-color="#0e4a2a"/><stop offset="0.75" stop-color="#08301b"/><stop offset="1" stop-color="#030c07"/></linearGradient>
+      <filter id="xnDrop" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#000" flood-opacity="0.65"/></filter>
+      <filter id="xnSoft" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="14"/></filter>
+      <radialGradient id="xnKey" cx="0.4" cy="0.28" r="0.85"><stop offset="0" stop-color="#55595e"/><stop offset="0.55" stop-color="#25272a"/><stop offset="1" stop-color="#0c0d0f"/></radialGradient>
+      <radialGradient id="xnKeyShade" cx="0.45" cy="0.38" r="0.64"><stop offset="0.65" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.4"/></radialGradient>
+      <linearGradient id="xnGroove" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0.8"/><stop offset="1" stop-color="#fff" stop-opacity="0.22"/></linearGradient>
+      <clipPath id="xnPlateClip"><path d="M766 67H1240L1226 150C1218 192 1193 210 1160 210H848C814 210 790 192 781 150Z"/></clipPath>
+      <linearGradient id="xnPlate" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#343a40"/><stop offset="0.45" stop-color="#1a1d21"/><stop offset="1" stop-color="#07080a"/></linearGradient>
+      <linearGradient id="xnSocket" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000"/><stop offset="0.6" stop-color="#16191c"/><stop offset="1" stop-color="#5a6268"/></linearGradient>
+      <linearGradient id="xnChrome" x1="0.2" y1="0" x2="0.8" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.45" stop-color="#8b9298"/><stop offset="0.75" stop-color="#3b4045"/><stop offset="1" stop-color="#a9b0b5"/></linearGradient>
+      <radialGradient id="xnDome" cx="0.4" cy="0.3" r="0.8"><stop offset="0" stop-color="#ffffff"/><stop offset="0.55" stop-color="#e3e8eb"/><stop offset="1" stop-color="#949da4"/></radialGradient>
+      <radialGradient id="xnDomeShade" cx="0.44" cy="0.36" r="0.66"><stop offset="0.6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.38"/></radialGradient>
+      <clipPath id="xnShellClip"><path d="M1000 66H765C700 66 645 70 585 82C495 100 420 127 360 168C298 238 250 345 218 455C175 590 143 750 143 880C143 1020 195 1138 295 1140C365 1142 405 1085 455 1005C525 895 620 864 760 868C840 871 900 872 1000 872C1100 872 1160 871 1240 868C1380 864 1475 895 1545 1005C1595 1085 1635 1142 1705 1140C1805 1138 1857 1020 1857 880C1857 750 1825 590 1782 455C1750 345 1702 238 1640 168C1580 127 1505 100 1415 82C1355 70 1300 66 1235 66Z"/></clipPath>
+      <clipPath id="xnScreenClip"><rect x="810" y="232" width="388" height="266" rx="54"/></clipPath>
+      <radialGradient id="xnDish" cx="0.5" cy="0.5" r="0.55"><stop offset="0" stop-color="#17181a"/><stop offset="0.75" stop-color="#0c0d0e"/><stop offset="1" stop-color="#1c1e20"/></radialGradient>
+      <linearGradient id="xnPadFace" gradientUnits="userSpaceOnUse" x1="620" y1="490" x2="850" y2="745"><stop offset="0" stop-color="#43464a"/><stop offset="0.5" stop-color="#292b2e"/><stop offset="1" stop-color="#17181a"/></linearGradient>
+      <linearGradient id="xnPadDish" x1="0.2" y1="0.1" x2="0.8" y2="0.9"><stop offset="0" stop-color="#000" stop-opacity="0.55"/><stop offset="0.5" stop-color="#000" stop-opacity="0.12"/><stop offset="1" stop-color="#fff" stop-opacity="0.2"/></linearGradient>
+      <linearGradient id="xnPadRim" x1="0.2" y1="0" x2="0.8" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.32"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.04"/><stop offset="1" stop-color="#000" stop-opacity="0.6"/></linearGradient>
+      <filter id="xnHollow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="9"/></filter>
+
+    </defs>
+
+    <g transform="translate(18.2 -5) scale(0.6628)">
+    <g class="body">
+      <path id="xp-lt" class="trigger" d="M385 132C398 82 455 36 508 20C535 13 552 22 555 40L566 84C500 90 440 110 392 142Z"/>
+      <g transform="translate(2000 0) scale(-1 1)"><path id="xp-rt" class="trigger" d="M385 132C398 82 455 36 508 20C535 13 552 22 555 40L566 84C500 90 440 110 392 142Z"/></g>
+      <path id="xp-b4" class="bumper" d="M368 166C420 108 500 76 598 66C625 63 650 66 668 70L690 96C590 96 480 120 398 176Z"/>
+      <g transform="translate(2000 0) scale(-1 1)"><path id="xp-b5" class="bumper" d="M368 166C420 108 500 76 598 66C625 63 650 66 668 70L690 96C590 96 480 120 398 176Z"/></g>
+      <path d="M1000 66H765C700 66 645 70 585 82C495 100 420 127 360 168C298 238 250 345 218 455C175 590 143 750 143 880C143 1020 195 1138 295 1140C365 1142 405 1085 455 1005C525 895 620 864 760 868C840 871 900 872 1000 872C1100 872 1160 871 1240 868C1380 864 1475 895 1545 1005C1595 1085 1635 1142 1705 1140C1805 1138 1857 1020 1857 880C1857 750 1825 590 1782 455C1750 345 1702 238 1640 168C1580 127 1505 100 1415 82C1355 70 1300 66 1235 66Z" fill="url(#xnBody)" stroke="#0a0b0c" stroke-width="3"/>
+    </g>
+    <g clip-path="url(#xnShellClip)" pointer-events="none">
+      <path d="M222 458C330 485 450 600 548 770C570 810 545 850 505 895C455 955 405 1062 345 1112C320 1132 300 1138 280 1135C195 1120 147 1025 147 880C147 750 177 590 222 458Z" fill="url(#xnGrip)"/><path d="M222 458C330 485 450 600 548 770C570 810 545 850 505 895C455 955 405 1062 345 1112C320 1132 300 1138 280 1135C195 1120 147 1025 147 880C147 750 177 590 222 458Z" fill="url(#xnWeave)"/><path d="M222 458C330 485 450 600 548 770C570 810 545 850 505 895C455 955 405 1062 345 1112C320 1132 300 1138 280 1135C195 1120 147 1025 147 880C147 750 177 590 222 458Z" fill="none" stroke="#000" stroke-width="4" opacity="0.7"/>
+      <g transform="translate(2000 0) scale(-1 1)"><path d="M222 458C330 485 450 600 548 770C570 810 545 850 505 895C455 955 405 1062 345 1112C320 1132 300 1138 280 1135C195 1120 147 1025 147 880C147 750 177 590 222 458Z" fill="url(#xnGrip)"/><path d="M222 458C330 485 450 600 548 770C570 810 545 850 505 895C455 955 405 1062 345 1112C320 1132 300 1138 280 1135C195 1120 147 1025 147 880C147 750 177 590 222 458Z" fill="url(#xnWeave)"/><path d="M222 458C330 485 450 600 548 770C570 810 545 850 505 895C455 955 405 1062 345 1112C320 1132 300 1138 280 1135C195 1120 147 1025 147 880C147 750 177 590 222 458Z" fill="none" stroke="#000" stroke-width="4" opacity="0.7"/></g>
+      <path class="rimglow" d="M295 1138C365 1140 405 1085 455 1005C525 895 620 864 760 868C840 871 900 872 1000 872C1100 872 1160 871 1240 868C1380 864 1475 895 1545 1005C1595 1085 1635 1140 1705 1138" stroke-width="54" filter="url(#xnSoft)" opacity="0.65"/>
+      <path class="rim" d="M295 1138C365 1140 405 1085 455 1005C525 895 620 864 760 868C840 871 900 872 1000 872C1100 872 1160 871 1240 868C1380 864 1475 895 1545 1005C1595 1085 1635 1140 1705 1138" stroke-width="16"/>
+      <path d="M360 175C450 105 570 78 765 74M1640 175C1550 105 1430 78 1235 74" fill="none" stroke="#fff" stroke-width="3" opacity="0.18"/>
+    </g>
+    <rect x="796" y="803" width="408" height="48" rx="24" fill="url(#xnSocket)"/>
+    <rect x="800" y="806" width="400" height="42" rx="21" fill="#0c0e10"/>
+    <rect x="955" y="816" width="96" height="22" rx="11" fill="#010202" stroke="#3a4045" stroke-width="2"/>
+    <g fill="#f2c14e"><circle cx="836" cy="827" r="7"/><circle cx="866" cy="827" r="7"/><circle cx="1140" cy="827" r="7"/><circle cx="1171" cy="827" r="7"/></g>
+    <g class="led"><circle cx="972" cy="766" r="7"/><circle cx="1004" cy="766" r="8"/><circle cx="1037" cy="766" r="7"/></g>
+
+    <!-- top plate: raised, with a cast shadow, shaded sides and a lit lower lip -->
+    <path d="M766 67H1240L1226 150C1218 192 1193 210 1160 210H848C814 210 790 192 781 150Z" fill="#000" transform="translate(0 12)" filter="url(#xnSoft)" opacity="0.85" pointer-events="none"/>
+    <path d="M779 154C789 198 814 216 848 216H1160C1194 216 1219 198 1228 154" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity="0.2" pointer-events="none"/>
+    <path d="M766 67H1240L1226 150C1218 192 1193 210 1160 210H848C814 210 790 192 781 150Z" fill="url(#xnPlate)" stroke="#030405" stroke-width="4"/>
+    <g clip-path="url(#xnPlateClip)" pointer-events="none">
+      <path d="M766 67H1240L1226 150C1218 192 1193 210 1160 210H848C814 210 790 192 781 150Z" fill="none" stroke="#000" stroke-width="30" filter="url(#xnSoft)" opacity="0.9"/>
+      <ellipse cx="1003" cy="72" rx="205" ry="34" fill="#fff" filter="url(#xnSoft)" opacity="0.16"/>
+      <path d="M786 150C795 188 818 204 848 204H1160C1190 204 1213 188 1221 150" fill="none" stroke="#fff" stroke-width="2" opacity="0.16"/>
+    </g>
+    <g fill="#010202" stroke="#fff" stroke-opacity="0.22" stroke-width="2"><circle cx="869" cy="138" r="7"/><circle cx="1139" cy="138" r="7"/></g>
+
+    <!-- home button: a domed cap in a recessed socket -->
+    <g id="xp-b16" class="guide">
+      <circle cx="1003" cy="142" r="64" fill="url(#xnSocket)"/>
+      <circle cx="1003" cy="142" r="56" fill="#030405"/>
+      <circle cx="1003" cy="151" r="50" fill="#000" filter="url(#xnSoft)"/>
+      <g class="dome">
+        <circle cx="1003" cy="142" r="52" fill="url(#xnChrome)"/>
+        <circle class="cap" cx="1003" cy="142" r="45" fill="url(#xnDome)"/>
+        <circle cx="1003" cy="142" r="45" fill="url(#xnDomeShade)" pointer-events="none"/>
+        <ellipse cx="992" cy="116" rx="26" ry="13" fill="#fff" opacity="0.6" transform="rotate(-16 992 116)" pointer-events="none"/>
+        <g pointer-events="none"><path transform="translate(1003 144)" d="M-22 -8V-22H-8M8 -22H22V-8M22 8V22H8M-8 22H-22V8" fill="none" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round" stroke="#fff" opacity="0.8"/><path transform="translate(1003 142)" d="M-22 -8V-22H-8M8 -22H22V-8M22 8V22H8M-8 22H-22V8" fill="none" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round" stroke="#101315"/></g>
+      </g>
+    </g>
+
+    <!-- touch screen -->
+    <rect x="803" y="225" width="402" height="280" rx="60" fill="#050607"/>
+    <g clip-path="url(#xnScreenClip)" pointer-events="none">
+      <rect x="810" y="232" width="388" height="266" fill="url(#xnScreen)"/>
+      <g class="idle"><path d="M810 430C890 418 930 380 1010 398C1090 415 1130 372 1198 382V498H810Z" fill="url(#xnDots)" opacity="0.5"/>
+      <ellipse class="led" cx="1010" cy="397" rx="140" ry="11" filter="url(#xnSoft)" opacity="0.8"/>
+      <path d="M870 415C920 405 960 394 1012 397C1060 400 1100 390 1150 380" fill="none" stroke="#b8ffd6" stroke-width="2" opacity="0.8"/></g>
+      <g id="xp-dash" style="display:none">
+        <rect x="810" y="232" width="388" height="266" fill="#020805" opacity="0.88"/>
+        <text id="xp-dlabel" x="1004" y="270">CREDITS</text>
+        <text id="xp-dnum" x="1004" y="338"></text>
+        <text id="xp-dpad" x="1004" y="408"></text>
+        <rect x="810" y="450" width="388" height="48" fill="rgba(0,0,0,0.82)"/>
+        <text id="xp-dhint" x="1004" y="475"></text>
+      </g>
+      <g id="xp-game" style="display:none">
+        <rect id="xp-gbg" x="810" y="232" width="388" height="266"/>
+        <image id="xp-gback" x="810" y="232" width="388" height="266" preserveAspectRatio="xMidYMid slice" opacity="0.28"/>
+        <image id="xp-gart" x="810" y="232" width="388" height="218" preserveAspectRatio="xMidYMid meet" style="image-rendering: pixelated"/>
+        <rect x="810" y="450" width="388" height="48" fill="rgba(0,0,0,0.82)"/>
+        <text id="xp-gname" x="1004" y="475"></text>
+      </g>
+    </g>
+    <rect x="810" y="232" width="388" height="266" rx="54" fill="none" stroke="#fff" stroke-width="1.5" opacity="0.12"/>
+
+    
+      <circle cx="518" cy="325" r="136" fill="url(#xnWellRing)"/>
+      <circle cx="518" cy="325" r="112" fill="#07090a"/>
+      <circle class="accent" cx="518" cy="325" r="106"/>
+      <g id="xp-ls" class="xstick" transform="translate(0 0)"><g transform="translate(518 325)">
+        <circle cy="-6" r="95" fill="url(#xnSkirt)" filter="url(#xnDrop)"/>
+        <circle class="ring" cy="-10" r="82" fill="url(#xnRubber)"/>
+        <circle cy="-10" r="82" fill="none" stroke="url(#xnKnurl)" stroke-width="9" stroke-dasharray="2 4" opacity="0.6"/>
+        <circle cy="-10" r="60" fill="url(#xnCapTop)"/>
+        <path d="M0 -10L-46 -48A60 60 0 0 1 -20 -66Z M0 -10L46 28A60 60 0 0 1 20 46Z" fill="#fff" opacity="0.10"/>
+        <circle cy="-10" r="60" fill="none" stroke="#0a0b0c" stroke-width="4"/>
+      </g></g>
+
+    <!-- d-pad: one round disc, four shallow hollows between the directions and a dip for the thumb -->
+    <circle cx="739" cy="613" r="146" fill="url(#xnWellRing)"/>
+    <circle cx="739" cy="615" r="136" fill="url(#xnDish)" stroke="#050505" stroke-width="3"/>
+    <circle cx="739" cy="615" r="122" fill="#050506" filter="url(#xnDrop)"/>
+    <circle cx="739" cy="615" r="122" fill="url(#xnPadFace)"/>
+    <g pointer-events="none" filter="url(#xnHollow)"><ellipse cx="799.8" cy="675.8" rx="22" ry="36" transform="rotate(45 799.8 675.8)" fill="#000" opacity="0.5"/><ellipse cx="678.2" cy="675.8" rx="22" ry="36" transform="rotate(135 678.2 675.8)" fill="#000" opacity="0.5"/><ellipse cx="678.2" cy="554.2" rx="22" ry="36" transform="rotate(225 678.2 554.2)" fill="#000" opacity="0.5"/><ellipse cx="799.8" cy="554.2" rx="22" ry="36" transform="rotate(315 799.8 554.2)" fill="#000" opacity="0.5"/></g>
+    <path id="xp-b12" class="arm" d="M667.6 523.6A116 116 0 0 1 810.4 523.6L769.8 575.6A50 50 0 0 0 708.2 575.6Z"/>
+    <path id="xp-b13" class="arm" d="M810.4 706.4A116 116 0 0 1 667.6 706.4L708.2 654.4A50 50 0 0 0 769.8 654.4Z"/>
+    <path id="xp-b14" class="arm" d="M647.6 686.4A116 116 0 0 1 647.6 543.6L699.6 584.2A50 50 0 0 0 699.6 645.8Z"/>
+    <path id="xp-b15" class="arm" d="M830.4 543.6A116 116 0 0 1 830.4 686.4L778.4 645.8A50 50 0 0 0 778.4 584.2Z"/>
+    <path id="xp-c12-15" class="arm" d="M809.5 522.8A116 116 0 0 1 831.2 544.5L778.7 584.6A50 50 0 0 0 769.4 575.3Z"/>
+    <path id="xp-c13-15" class="arm" d="M831.2 685.5A116 116 0 0 1 809.5 707.2L769.4 654.7A50 50 0 0 0 778.7 645.4Z"/>
+    <path id="xp-c13-14" class="arm" d="M668.5 707.2A116 116 0 0 1 646.8 685.5L699.3 645.4A50 50 0 0 0 708.6 654.7Z"/>
+    <path id="xp-c12-14" class="arm" d="M646.8 544.5A116 116 0 0 1 668.5 522.8L708.6 575.3A50 50 0 0 0 699.3 584.6Z"/>
+    <g pointer-events="none">
+      <circle cx="739" cy="615" r="120" fill="none" stroke="url(#xnPadRim)" stroke-width="4"/>
+      <circle cx="739" cy="615" r="42" fill="url(#xnPadDish)"/>
+      <circle cx="739" cy="615" r="42" fill="none" stroke="#000" stroke-width="2" opacity="0.4"/>
+      <path d="M739.0 515.0L728.2 532.7L749.8 532.7ZM739.0 715.0L749.8 697.3L728.2 697.3ZM639.0 615.0L656.7 625.8L656.7 604.2ZM839.0 615.0L821.3 604.2L821.3 625.8Z" fill="#fff" opacity="0.32"/>
+    </g>
+
+    <circle cx="1271" cy="622" r="136" fill="url(#xnWellRing)"/>
+      <circle cx="1271" cy="622" r="112" fill="#07090a"/>
+      <circle class="accent" cx="1271" cy="622" r="106"/>
+      <g id="xp-rs" class="xstick" transform="translate(0 0)"><g transform="translate(1271 622)">
+        <circle cy="-6" r="95" fill="url(#xnSkirt)" filter="url(#xnDrop)"/>
+        <circle class="ring" cy="-10" r="82" fill="url(#xnRubber)"/>
+        <circle cy="-10" r="82" fill="none" stroke="url(#xnKnurl)" stroke-width="9" stroke-dasharray="2 4" opacity="0.6"/>
+        <circle cy="-10" r="60" fill="url(#xnCapTop)"/>
+        <path d="M0 -10L-46 -48A60 60 0 0 1 -20 -66Z M0 -10L46 28A60 60 0 0 1 20 46Z" fill="#fff" opacity="0.10"/>
+        <circle cy="-10" r="60" fill="none" stroke="#0a0b0c" stroke-width="4"/>
+      </g></g>
+
+    
+      <g id="xp-b8" class="small"><circle cx="742" cy="285" r="41" fill="#07090a"/><circle class="cap" cx="742" cy="285" r="34" fill="url(#xnButton)"/><g transform="translate(742 285)" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="-18" y="-16" width="24" height="20" rx="3" stroke="#e4e8ea" stroke-width="4"/><rect x="-6" y="-4" width="24" height="20" rx="3" fill="#15181a" stroke="#e4e8ea" stroke-width="4"/></g></g>
+      <g id="xp-b9" class="small"><circle cx="1268" cy="285" r="41" fill="#07090a"/><circle class="cap" cx="1268" cy="285" r="34" fill="url(#xnButton)"/><g transform="translate(1268 285)" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M-17 -12H17M-17 0H17M-17 12H17" stroke="#e4e8ea" stroke-width="4.5"/></g></g>
+      <g class="small"><circle cx="742" cy="391" r="41" fill="#07090a"/><circle class="cap" cx="742" cy="391" r="34" fill="url(#xnButton)"/><g transform="translate(742 391)" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="-7" y="-19" width="14" height="25" rx="7" stroke="#e4e8ea" stroke-width="3.5"/><path d="M-13 -1C-13 17 13 17 13 -1M0 13V21M-8 21H8M-17 -19L17 17" stroke="#e4e8ea" stroke-width="3.5"/></g></g>
+      <g class="small"><circle cx="1268" cy="391" r="41" fill="#07090a"/><circle class="cap" cx="1268" cy="391" r="34" fill="url(#xnButton)"/><g transform="translate(1268 391)" fill="none" stroke-linecap="round" stroke-linejoin="round"><path class="spark" d="M-3 -19C0 -6 4 -2 17 1C4 4 0 8 -3 21C-6 8 -10 4 -23 1C-10 -2 -6 -6 -3 -19Z"/><circle class="spark" cx="15" cy="-14" r="4"/><circle class="spark" cx="14" cy="15" r="3"/></g></g>
+
+    
+      <!-- face buttons -->
+      <g id="xp-b3" class="face" style="--c:#f2d21b"><g transform="translate(1501 250)">
+        <circle r="55" fill="#000" opacity="0.55"/><circle r="55" fill="none" stroke="url(#xnGroove)" stroke-width="2.5"/>
+        <circle class="cap" r="50" fill="url(#xnKey)"/>
+        <circle r="50" fill="url(#xnKeyShade)" pointer-events="none"/>
+        <ellipse cx="-8" cy="-27" rx="27" ry="12" fill="#fff" opacity="0.12" pointer-events="none"/>
+        <text class="letter" y="3" fill="#eef1f3">Y</text></g></g>
+      <g id="xp-b2" class="face" style="--c:#1e8fff"><g transform="translate(1415 336)">
+        <circle r="55" fill="#000" opacity="0.55"/><circle r="55" fill="none" stroke="url(#xnGroove)" stroke-width="2.5"/>
+        <circle class="cap" r="50" fill="url(#xnKey)"/>
+        <circle r="50" fill="url(#xnKeyShade)" pointer-events="none"/>
+        <ellipse cx="-8" cy="-27" rx="27" ry="12" fill="#fff" opacity="0.12" pointer-events="none"/>
+        <text class="letter" y="3" fill="#eef1f3">X</text></g></g>
+      <g id="xp-b1" class="face" style="--c:#ff3a3a"><g transform="translate(1587 336)">
+        <circle r="55" fill="#000" opacity="0.55"/><circle r="55" fill="none" stroke="url(#xnGroove)" stroke-width="2.5"/>
+        <circle class="cap" r="50" fill="url(#xnKey)"/>
+        <circle r="50" fill="url(#xnKeyShade)" pointer-events="none"/>
+        <ellipse cx="-8" cy="-27" rx="27" ry="12" fill="#fff" opacity="0.12" pointer-events="none"/>
+        <text class="letter" y="3" fill="#eef1f3">B</text></g></g>
+      <g id="xp-b0" class="face" style="--c:#3dc456"><g transform="translate(1501 422)">
+        <circle r="55" fill="#000" opacity="0.55"/><circle r="55" fill="none" stroke="url(#xnGroove)" stroke-width="2.5"/>
+        <circle class="cap" r="50" fill="url(#xnKey)"/>
+        <circle r="50" fill="url(#xnKeyShade)" pointer-events="none"/>
+        <ellipse cx="-8" cy="-27" rx="27" ry="12" fill="#fff" opacity="0.12" pointer-events="none"/>
+        <text class="letter" y="3" fill="#eef1f3">A</text></g></g>
+    </g>
+  </svg>
+  <svg class="abs xpad pspad" id="pspad" viewBox="-10 -14 870 622">
+    <defs>
+      <linearGradient id="pnShell" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.6" stop-color="#edf0f7"/><stop offset="1" stop-color="#cdd3e1"/></linearGradient>
+      <radialGradient id="pnEdge" gradientUnits="userSpaceOnUse" cx="1000" cy="560" r="900"><stop offset="0.68" stop-color="#5f6c8c" stop-opacity="0"/><stop offset="1" stop-color="#5f6c8c" stop-opacity="0.32"/></radialGradient>
+      <linearGradient id="pnCore" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#23262d"/><stop offset="0.5" stop-color="#17191e"/><stop offset="1" stop-color="#08090b"/></linearGradient>
+      <pattern id="pnGrain" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><circle cx="2" cy="2" r="1.3" fill="#fff" opacity="0.09"/></pattern>
+      <linearGradient id="pnGloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#353a44"/><stop offset="0.35" stop-color="#101217"/><stop offset="1" stop-color="#040507"/></linearGradient>
+      <linearGradient id="pnCap" x1="0.2" y1="0" x2="0.8" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dfe3ee"/></linearGradient>
+      <radialGradient id="pnSocket" cx="0.5" cy="0.4" r="0.6"><stop offset="0.65" stop-color="#101216"/><stop offset="0.86" stop-color="#2c3038"/><stop offset="1" stop-color="#14161a"/></radialGradient>
+      <linearGradient id="pnRingFade" x1="0" y1="0" x2="0" y2="1"><stop offset="0.2" stop-color="#2e8bff" stop-opacity="0"/><stop offset="1" stop-color="#2e8bff"/></linearGradient>
+      <radialGradient id="pnSkirt" cx="0.45" cy="0.3" r="0.75"><stop offset="0" stop-color="#454a53"/><stop offset="1" stop-color="#111317"/></radialGradient>
+      <radialGradient id="pnRubber" cx="0.4" cy="0.28" r="0.85"><stop offset="0" stop-color="#565b65"/><stop offset="0.7" stop-color="#2b2f36"/><stop offset="1" stop-color="#181a1f"/></radialGradient>
+      <linearGradient id="pnDish" x1="0.2" y1="0" x2="0.8" y2="1"><stop offset="0" stop-color="#23262c"/><stop offset="1" stop-color="#474c55"/></linearGradient>
+      <linearGradient id="pnLamp" gradientUnits="userSpaceOnUse" x1="0" y1="244" x2="0" y2="536"><stop offset="0" stop-color="#2e8bff" stop-opacity="0"/><stop offset="0.45" stop-color="#2e8bff" stop-opacity="0.9"/><stop offset="1" stop-color="#55a2ff"/></linearGradient>
+      <radialGradient id="pnMound" cx="0.5" cy="0.42" r="0.5"><stop offset="0.72" stop-color="#3a404b" stop-opacity="0.9"/><stop offset="0.86" stop-color="#262a32" stop-opacity="0.75"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+      <linearGradient id="pnTrig" x1="0.2" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#555c69"/><stop offset="0.38" stop-color="#1c1f26"/><stop offset="1" stop-color="#07080a"/></linearGradient>
+      <linearGradient id="pnBump" gradientUnits="userSpaceOnUse" x1="0" y1="148" x2="0" y2="215"><stop offset="0" stop-color="#3c424d"/><stop offset="0.5" stop-color="#14161b"/><stop offset="1" stop-color="#050607"/></linearGradient>
+      <filter id="pnGlint" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="5"/></filter>
+      <linearGradient id="pnScreen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d2146"/><stop offset="1" stop-color="#061027"/></linearGradient>
+      <linearGradient id="pnTile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#26487a"/><stop offset="1" stop-color="#162d52"/></linearGradient>
+      <filter id="pnDrop" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="11" stdDeviation="10" flood-color="#000" flood-opacity="0.55"/></filter>
+      <filter id="pnShadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="24" stdDeviation="28" flood-color="#1e2a46" flood-opacity="0.26"/></filter>
+      <filter id="pnSoft" x="-40%" y="-60%" width="180%" height="220%"><feGaussianBlur stdDeviation="16"/></filter>
+      <clipPath id="pnShellClip"><path d="M1000 168H640C600 168 560 175 500 188C420 200 340 215 305 245C260 300 220 400 190 520C160 650 143 780 143 905C143 1040 185 1150 275 1205C320 1232 365 1244 385 1230C405 1215 420 1180 445 1120C480 1035 520 965 570 930C586 915 604 903 622 895C655 882 692 878 732 878C808 878 842 848 906 846H1094C1158 848 1192 878 1268 878C1308 878 1345 882 1378 895C1396 903 1414 915 1430 930C1480 965 1520 1035 1555 1120C1580 1180 1595 1215 1615 1230C1635 1244 1680 1232 1725 1205C1815 1150 1857 1040 1857 905C1857 780 1840 650 1810 520C1780 400 1740 300 1695 245C1660 215 1580 200 1500 188C1440 175 1400 168 1360 168Z"/></clipPath>
+      <clipPath id="pnCoreClip"><path d="M682 380L692 440C706 508 748 534 818 536H1182C1252 534 1294 508 1308 440L1318 380C1328 462 1374 510 1416 558C1458 620 1474 668 1466 724C1459 778 1472 806 1502 856C1556 946 1636 1074 1705 1217C1670 1236 1635 1244 1615 1230C1595 1215 1580 1180 1555 1120C1520 1035 1430 916 1378 895C1345 882 1308 878 1268 878C1192 878 1158 848 1094 846H906C842 848 808 878 732 878C692 878 655 882 622 895C570 916 480 1035 445 1120C420 1180 405 1215 385 1230C365 1244 330 1236 295 1217C364 1074 444 946 498 856C528 806 541 778 534 724C526 668 542 620 584 558C626 510 672 462 682 380Z"/></clipPath>
+      <clipPath id="pnScreenClip"><rect x="730" y="224" width="540" height="244" rx="24"/></clipPath>
+      <clipPath id="pnArtClip"><rect x="748" y="242" width="252" height="208" rx="16"/></clipPath>
+    </defs>
+
+    <g transform="translate(-71 -56) scale(0.496)">
+    <!-- shoulder buttons: a rounded trigger standing behind a glossy bumper, both seated in the shell -->
+    <path id="ps-lt" class="ptrig" d="M376 200C374 154 400 122 452 107C512 90 572 88 600 104C614 113 620 130 620 150V180L376 224Z"/>
+    <path d="M400 156C410 132 432 119 466 110C518 96 566 96 590 108" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" filter="url(#pnGlint)" opacity="0.5" pointer-events="none"/>
+    <path d="M338 244C342 206 366 186 408 175C476 158 548 149 614 148C634 148 649 156 657 171L668 198L338 262Z" fill="#000" transform="translate(0 -9)" filter="url(#pnGlint)" opacity="0.55" pointer-events="none"/>
+    <path id="ps-b4" class="bump" d="M338 244C342 206 366 186 408 175C476 158 548 149 614 148C634 148 649 156 657 171L668 198L338 262Z"/>
+    <path d="M352 222C362 197 384 187 414 181C480 164 548 156 614 155C630 155 642 160 649 170" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" opacity="0.32" pointer-events="none"/>
+    <g transform="translate(2000 0) scale(-1 1)"><path id="ps-rt" class="ptrig" d="M376 200C374 154 400 122 452 107C512 90 572 88 600 104C614 113 620 130 620 150V180L376 224Z"/>
+    <path d="M400 156C410 132 432 119 466 110C518 96 566 96 590 108" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" filter="url(#pnGlint)" opacity="0.5" pointer-events="none"/>
+    <path d="M338 244C342 206 366 186 408 175C476 158 548 149 614 148C634 148 649 156 657 171L668 198L338 262Z" fill="#000" transform="translate(0 -9)" filter="url(#pnGlint)" opacity="0.55" pointer-events="none"/>
+    <path id="ps-b5" class="bump" d="M338 244C342 206 366 186 408 175C476 158 548 149 614 148C634 148 649 156 657 171L668 198L338 262Z"/>
+    <path d="M352 222C362 197 384 187 414 181C480 164 548 156 614 155C630 155 642 160 649 170" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" opacity="0.32" pointer-events="none"/></g>
+    <path d="M1000 168H640C600 168 560 175 500 188C420 200 340 215 305 245C260 300 220 400 190 520C160 650 143 780 143 905C143 1040 185 1150 275 1205C320 1232 365 1244 385 1230C405 1215 420 1180 445 1120C480 1035 520 965 570 930C586 915 604 903 622 895C655 882 692 878 732 878C808 878 842 848 906 846H1094C1158 848 1192 878 1268 878C1308 878 1345 882 1378 895C1396 903 1414 915 1430 930C1480 965 1520 1035 1555 1120C1580 1180 1595 1215 1615 1230C1635 1244 1680 1232 1725 1205C1815 1150 1857 1040 1857 905C1857 780 1840 650 1810 520C1780 400 1740 300 1695 245C1660 215 1580 200 1500 188C1440 175 1400 168 1360 168Z" fill="url(#pnShell)" filter="url(#pnShadow)"/>
+    <path d="M1000 168H640C600 168 560 175 500 188C420 200 340 215 305 245C260 300 220 400 190 520C160 650 143 780 143 905C143 1040 185 1150 275 1205C320 1232 365 1244 385 1230C405 1215 420 1180 445 1120C480 1035 520 965 570 930C586 915 604 903 622 895C655 882 692 878 732 878C808 878 842 848 906 846H1094C1158 848 1192 878 1268 878C1308 878 1345 882 1378 895C1396 903 1414 915 1430 930C1480 965 1520 1035 1555 1120C1580 1180 1595 1215 1615 1230C1635 1244 1680 1232 1725 1205C1815 1150 1857 1040 1857 905C1857 780 1840 650 1810 520C1780 400 1740 300 1695 245C1660 215 1580 200 1500 188C1440 175 1400 168 1360 168Z" fill="url(#pnEdge)"/>
+    <g clip-path="url(#pnShellClip)" pointer-events="none">
+      <path d="M660 244L692 440C706 508 748 534 818 536H1182C1252 534 1294 508 1308 440L1340 244" fill="none" stroke="#2e8bff" stroke-width="30" filter="url(#pnSoft)" opacity="0.22"/>
+    </g>
+    <path d="M682 380L692 440C706 508 748 534 818 536H1182C1252 534 1294 508 1308 440L1318 380C1328 462 1374 510 1416 558C1458 620 1474 668 1466 724C1459 778 1472 806 1502 856C1556 946 1636 1074 1705 1217C1670 1236 1635 1244 1615 1230C1595 1215 1580 1180 1555 1120C1520 1035 1430 916 1378 895C1345 882 1308 878 1268 878C1192 878 1158 848 1094 846H906C842 848 808 878 732 878C692 878 655 882 622 895C570 916 480 1035 445 1120C420 1180 405 1215 385 1230C365 1244 330 1236 295 1217C364 1074 444 946 498 856C528 806 541 778 534 724C526 668 542 620 584 558C626 510 672 462 682 380Z" fill="url(#pnCore)"/><path d="M682 380L692 440C706 508 748 534 818 536H1182C1252 534 1294 508 1308 440L1318 380C1328 462 1374 510 1416 558C1458 620 1474 668 1466 724C1459 778 1472 806 1502 856C1556 946 1636 1074 1705 1217C1670 1236 1635 1244 1615 1230C1595 1215 1580 1180 1555 1120C1520 1035 1430 916 1378 895C1345 882 1308 878 1268 878C1192 878 1158 848 1094 846H906C842 848 808 878 732 878C692 878 655 882 622 895C570 916 480 1035 445 1120C420 1180 405 1215 385 1230C365 1244 330 1236 295 1217C364 1074 444 946 498 856C528 806 541 778 534 724C526 668 542 620 584 558C626 510 672 462 682 380Z" fill="url(#pnGrain)" pointer-events="none"/>
+    <g clip-path="url(#pnCoreClip)" pointer-events="none"><circle cx="728" cy="692" r="196" fill="url(#pnMound)"/><circle cx="1272" cy="692" r="196" fill="url(#pnMound)"/></g>
+
+    <!-- touch panel, its light and the screen -->
+    <path d="M692 193C722 172 780 170 1000 170C1220 170 1278 172 1308 193C1338 212 1348 235 1342 262L1308 440C1294 508 1252 534 1182 536H818C748 534 706 508 692 440L658 262C652 235 662 212 692 193Z" fill="url(#pnGloss)"/>
+    <path class="lampline" d="M660 244L692 440C706 508 748 534 818 536H1182C1252 534 1294 508 1308 440L1340 244"/>
+    <g clip-path="url(#pnScreenClip)" pointer-events="none">
+      <rect x="730" y="224" width="540" height="244" fill="url(#pnScreen)"/>
+      <rect x="731.5" y="225.5" width="537" height="241" rx="23" fill="none" stroke="#6fb1ff" stroke-opacity="0.28" stroke-width="3"/>
+      <g id="ps-dash">
+        <text id="ps-dlabel" class="dl" x="1000" y="259">CREDITS</text>
+        <text id="ps-dnum" class="dn" x="1000" y="318"></text>
+        <text id="ps-dpad" class="dp" x="1000" y="374"></text>
+        <rect x="835" y="402" width="330" height="48" rx="24" fill="#fff" fill-opacity="0.1"/>
+        <text id="ps-dhint" class="dh" x="1000" y="427"></text>
+      </g>
+      <g id="ps-game" style="display:none">
+        <rect x="748" y="242" width="252" height="208" rx="16" fill="url(#pnTile)"/>
+        <g clip-path="url(#pnArtClip)"><rect id="ps-gbg" x="748" y="242" width="252" height="142"/><image id="ps-gart" x="748" y="242" width="252" height="142" preserveAspectRatio="xMidYMid slice" style="image-rendering: pixelated"/></g>
+        <text id="ps-glabel" class="gl" x="764" y="406"></text>
+        <text id="ps-gname" class="gn" x="764" y="431"></text>
+        <rect x="1015" y="270" width="72" height="72" rx="16" fill="url(#pnTile)"/><rect x="1094" y="270" width="72" height="72" rx="16" fill="url(#pnTile)"/><rect x="1173" y="270" width="72" height="72" rx="16" fill="url(#pnTile)"/>
+        <text id="ps-tcredits" class="tv" x="1051" y="307"></text><text class="tl" x="1051" y="368">Credits</text>
+        <text id="ps-tfav" class="tv" x="1130" y="307"></text><text class="tl" x="1130" y="368">Favorite</text>
+        <text id="ps-tbatt" class="tv small" x="1209" y="307"></text><text class="tl" x="1209" y="368">Battery</text>
+        <g fill="#6fb1ff"><circle cx="1086" cy="428" r="5"/><circle cx="1104" cy="428" r="5" opacity="0.5"/><circle cx="1122" cy="428" r="5" opacity="0.3"/></g>
+      </g>
+    </g>
+    <path d="M700 200C760 184 840 182 1000 182C1160 182 1240 184 1300 200" fill="none" stroke="#fff" stroke-width="3" opacity="0.2" pointer-events="none"/>
+
+    
+    <g id="ps-b8" class="psmb" transform="rotate(-10 605 286)"><rect x="581" y="245" width="48" height="82" rx="24" fill="#c3c8d6"/><rect class="bg" x="585" y="247" width="40" height="74" rx="20"/></g>
+    <g id="ps-b9" class="psmb" transform="rotate(10 1395 286)"><rect x="1371" y="245" width="48" height="82" rx="24" fill="#c3c8d6"/><rect class="bg" x="1375" y="247" width="40" height="74" rx="20"/></g>
+    <!-- direction keys -->
+    <g id="ps-b12" class="dkey" transform="rotate(0 470 465)"><path d="M425 345Q425 325 445 325H495Q515 325 515 345V398Q515 410 506 418L483 441Q470 452 457 441L434 418Q425 410 425 398Z" fill="#14161a" stroke="#14161a" stroke-width="9" stroke-linejoin="round"/><path class="k" d="M425 345Q425 325 445 325H495Q515 325 515 345V398Q515 410 506 418L483 441Q470 452 457 441L434 418Q425 410 425 398Z"/><path class="arr" d="M470 351L486 376H454Z"/></g>
+    <g id="ps-b15" class="dkey" transform="rotate(90 470 465)"><path d="M425 345Q425 325 445 325H495Q515 325 515 345V398Q515 410 506 418L483 441Q470 452 457 441L434 418Q425 410 425 398Z" fill="#14161a" stroke="#14161a" stroke-width="9" stroke-linejoin="round"/><path class="k" d="M425 345Q425 325 445 325H495Q515 325 515 345V398Q515 410 506 418L483 441Q470 452 457 441L434 418Q425 410 425 398Z"/><path class="arr" d="M470 351L486 376H454Z"/></g>
+    <g id="ps-b13" class="dkey" transform="rotate(180 470 465)"><path d="M425 345Q425 325 445 325H495Q515 325 515 345V398Q515 410 506 418L483 441Q470 452 457 441L434 418Q425 410 425 398Z" fill="#14161a" stroke="#14161a" stroke-width="9" stroke-linejoin="round"/><path class="k" d="M425 345Q425 325 445 325H495Q515 325 515 345V398Q515 410 506 418L483 441Q470 452 457 441L434 418Q425 410 425 398Z"/><path class="arr" d="M470 351L486 376H454Z"/></g>
+    <g id="ps-b14" class="dkey" transform="rotate(270 470 465)"><path d="M425 345Q425 325 445 325H495Q515 325 515 345V398Q515 410 506 418L483 441Q470 452 457 441L434 418Q425 410 425 398Z" fill="#14161a" stroke="#14161a" stroke-width="9" stroke-linejoin="round"/><path class="k" d="M425 345Q425 325 445 325H495Q515 325 515 345V398Q515 410 506 418L483 441Q470 452 457 441L434 418Q425 410 425 398Z"/><path class="arr" d="M470 351L486 376H454Z"/></g>
+    <!-- face buttons -->
+    <g id="ps-b3" class="face"><g transform="translate(1530 379)"><circle r="57" fill="#c3c8d6"/><circle r="52" cy="5" fill="rgba(30,40,70,0.22)"/><circle class="cap" r="51"/><path class="sym" fill="none" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round" d="M0 -27L27 20H-27Z"/></g></g>
+    <g id="ps-b2" class="face"><g transform="translate(1444 465)"><circle r="57" fill="#c3c8d6"/><circle r="52" cy="5" fill="rgba(30,40,70,0.22)"/><circle class="cap" r="51"/><rect class="sym" fill="none" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round" x="-22" y="-22" width="44" height="44" rx="3"/></g></g>
+    <g id="ps-b1" class="face"><g transform="translate(1616 465)"><circle r="57" fill="#c3c8d6"/><circle r="52" cy="5" fill="rgba(30,40,70,0.22)"/><circle class="cap" r="51"/><circle class="sym" fill="none" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round" r="26"/></g></g>
+    <g id="ps-b0" class="face"><g transform="translate(1530 551)"><circle r="57" fill="#c3c8d6"/><circle r="52" cy="5" fill="rgba(30,40,70,0.22)"/><circle class="cap" r="51"/><path class="sym" fill="none" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round" d="M-22 -22L22 22M22 -22L-22 22"/></g></g>
+    
+    <circle cx="728" cy="692" r="160" fill="url(#pnSocket)"/>
+    <circle cx="728" cy="692" r="124" fill="#07080a"/>
+    <circle cx="728" cy="692" r="108" fill="none" stroke="url(#pnRingFade)" stroke-width="13" class="lamp"/>
+    <g id="ps-ls" class="xstick" transform="translate(0 0)"><g transform="translate(728 682)">
+      <circle r="101" fill="url(#pnSkirt)" filter="url(#pnDrop)"/>
+      <circle class="ring" r="92" fill="url(#pnRubber)"/>
+      <circle r="84" fill="none" stroke="#6a707a" stroke-width="10" stroke-dasharray="2 5" opacity="0.28"/>
+      <circle r="62" fill="url(#pnDish)"/><circle r="62" fill="none" stroke="#08090b" stroke-width="4"/>
+    </g></g>
+    <circle cx="1272" cy="692" r="160" fill="url(#pnSocket)"/>
+    <circle cx="1272" cy="692" r="124" fill="#07080a"/>
+    <circle cx="1272" cy="692" r="108" fill="none" stroke="url(#pnRingFade)" stroke-width="13" class="lamp"/>
+    <g id="ps-rs" class="xstick" transform="translate(0 0)"><g transform="translate(1272 682)">
+      <circle r="101" fill="url(#pnSkirt)" filter="url(#pnDrop)"/>
+      <circle class="ring" r="92" fill="url(#pnRubber)"/>
+      <circle r="84" fill="none" stroke="#6a707a" stroke-width="10" stroke-dasharray="2 5" opacity="0.28"/>
+      <circle r="62" fill="url(#pnDish)"/><circle r="62" fill="none" stroke="#08090b" stroke-width="4"/>
+    </g></g>
+
+    <g fill="#030405" stroke="#fff" stroke-opacity="0.12" stroke-width="2"><circle cx="940" cy="566" r="11"/><circle cx="970" cy="566" r="11"/><circle cx="1000" cy="566" r="11"/><circle cx="1030" cy="566" r="11"/><circle cx="1058" cy="566" r="11"/><circle cx="955" cy="595" r="11"/><circle cx="985" cy="595" r="11"/><circle cx="1015" cy="595" r="11"/><circle cx="1043" cy="595" r="11"/></g>
+    <g id="ps-b16" class="home"><circle cx="1000" cy="681" r="53" fill="#050608"/><circle class="cap" cx="1000" cy="679" r="45"/><path transform="translate(1000 679) scale(0.9)" d="M-22 -8V-22H-8M8 -22H22V-8M22 8V22H8M-8 22H-22V8" fill="none" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round" stroke="#fff" pointer-events="none"/></g>
+    <rect x="947" y="764" width="106" height="34" rx="17" fill="#050608"/><rect x="951" y="767" width="98" height="26" rx="13" fill="url(#pnRubber)"/>
+    </g>
+  </svg>
+  <div class="abs xfoot" style="left:72px"><span class="key kl">L</span>Previous<span class="gap"></span><span class="key kr">R</span>Next</div>
+  <button class="abs xfoot xbig" id="xbig" style="right:64px"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>Big screen</button>
+  <div class="abs xfoot" style="right:64px"><span class="glyph a">A</span>Select<span class="gap"></span><span class="glyph b">B</span>Back</div>
+</div>
+<div id="webhost"></div>
+<div id="tstage">
+  <svg class="abs t-shape" viewBox="0 0 1672 940">
+    <defs>
+      <linearGradient id="tEdge" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8affbf"/><stop offset="0.4" stop-color="#3ddc84"/><stop offset="0.75" stop-color="#16a34a"/><stop offset="1" stop-color="#c6ff3d"/></linearGradient>
+      <linearGradient id="tBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d2416"/><stop offset="1" stop-color="#051009"/></linearGradient>
+      <linearGradient id="tRainbow" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3ddc84" stop-opacity="0"/><stop offset="0.25" stop-color="#3ddc84"/><stop offset="0.5" stop-color="#ff4fa3"/><stop offset="0.75" stop-color="#3ddc84"/><stop offset="1" stop-color="#3ddc84" stop-opacity="0"/></linearGradient>
+      <radialGradient id="tBezel" cx="0.5" cy="0.45" r="0.7"><stop offset="0" stop-color="#0b1d12"/><stop offset="1" stop-color="#050c08"/></radialGradient>
+      <radialGradient id="tFlare" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#e9ff8a" stop-opacity="0.95"/><stop offset="0.35" stop-color="#9dff3d" stop-opacity="0.45"/><stop offset="1" stop-color="#9dff3d" stop-opacity="0"/></radialGradient>
+      <linearGradient id="tEdgePs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8cc2ff"/><stop offset="0.5" stop-color="#2e8bff"/><stop offset="1" stop-color="#0070d1"/></linearGradient>
+      <linearGradient id="tBodyPs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e3e9f2"/></linearGradient>
+      <radialGradient id="tBezelPs" cx="0.5" cy="0.4" r="0.75"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#edf1f7"/></radialGradient>
+      <radialGradient id="tFlarePs" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#bcd9ff" stop-opacity="0.9"/><stop offset="1" stop-color="#bcd9ff" stop-opacity="0"/></radialGradient>
+      <filter id="tGlowW" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="30"/></filter>
+      <filter id="tGlow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="12"/></filter>
+      <filter id="tGlowS" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="5"/></filter>
+      <path id="tOutline" d="M 34 948 C 96 820, 150 660, 146 500 C 142 360, 70 290, 66 190 C 62 120, 96 84, 176 74 C 260 64, 340 60, 384 58 C 406 57, 418 46, 430 30 C 440 14, 452 8, 474 8 L 1198 8 C 1220 8, 1232 14, 1242 30 C 1254 46, 1266 57, 1288 58 C 1332 60, 1412 64, 1496 74 C 1576 84, 1610 120, 1606 190 C 1602 290, 1530 360, 1526 500 C 1522 660, 1576 820, 1638 948"/>
+    </defs>
+    <!-- cabinet body with a neon edge, and a second neon line inside it -->
+    <use class="tb-body" href="#tOutline" fill="url(#tBody)"/>
+    <use class="tb-glow-w" href="#tOutline" fill="none" stroke="url(#tEdge)" stroke-width="56" filter="url(#tGlowW)" opacity="0.5"/>
+    <use class="tb-glow" href="#tOutline" fill="none" stroke="url(#tEdge)" stroke-width="20" filter="url(#tGlow)" opacity="0.95"/>
+    <use class="tb-edge" href="#tOutline" fill="none" stroke="url(#tEdge)" stroke-width="5"/>
+    <use class="tb-hi" href="#tOutline" fill="none" stroke="#f2fff6" stroke-width="1.5" opacity="0.7"/>
+    <g class="tb-inner" transform="translate(836 500) scale(0.935 0.93) translate(-836 -500)">
+      <use href="#tOutline" fill="none" stroke="url(#tEdge)" stroke-width="8" filter="url(#tGlowS)" opacity="0.55"/>
+      <use href="#tOutline" fill="none" stroke="url(#tEdge)" stroke-width="2" opacity="0.8"/>
+    </g>
+    <!-- lime flares where the cabinet meets the floor -->
+    <ellipse class="tb-flare" cx="52" cy="912" rx="120" ry="70" fill="url(#tFlare)"/>
+    <ellipse class="tb-flare" cx="1620" cy="912" rx="120" ry="70" fill="url(#tFlare)"/>
+    <!-- deep bezel -->
+    <rect class="tb-bezel" x="300" y="110" width="1072" height="734" rx="70" fill="url(#tBezel)" stroke="rgba(61,220,132,0.14)" stroke-width="2"/>
+    <!-- glowing screen frame -->
+    <rect class="tframe tf-glow" x="400" y="146" width="872" height="662" rx="34" fill="none" stroke="#3ddc84" stroke-width="22" opacity="0.45" filter="url(#tGlow)"/>
+    <rect class="tframe tf-line" x="400" y="146" width="872" height="662" rx="34" fill="#000" stroke="#3ddc84" stroke-width="6"/>
+    <rect class="tframe tf-hi" x="400" y="146" width="872" height="662" rx="34" fill="none" stroke="#dfffea" stroke-width="1.5" opacity="0.8"/>
+    <!-- bottom panel -->
+    <rect class="tb-panel" x="561" y="860" width="550" height="56" rx="28" fill="#071309" stroke="rgba(61,220,132,0.35)" stroke-width="2"/>
+  </svg>
+  <div class="abs t-name"><svg id="logoT1" viewBox="0 0 15 10" shape-rendering="crispEdges"></svg><b id="tname">COINSOLE</b><svg id="logoT2" viewBox="0 0 15 10" shape-rendering="crispEdges"></svg></div>
+  <div class="abs t-crt" id="tcrt"><div class="msg" id="tmsg"></div></div>
+  <div class="abs t-foot"><span>CREDITS<b id="tcredits">0</b></span><i class="sep"></i><span class="pad"><svg viewBox="0 0 24 16"><path d="M6 1h12a5.5 5.5 0 0 1 5.3 7l-1 3.6a3 3 0 0 1-5.1 1.3L14.5 10.5h-5L6.8 12.9a3 3 0 0 1-5.1-1.3l-1-3.6A5.5 5.5 0 0 1 6 1Zm0 3.2v1.6H4.4v1.6H6V9h1.6V7.4h1.6V5.8H7.6V4.2Zm11.2.6a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm-2 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"/></svg><span id="tpad">NO CONTROLLER</span></span></div>
+</div>
+<script>
+// ---------- pixel mascot (an original cloud sprite) ----------
+const MASCOT = ["......XXX......", "....XXXXXXX....", "...XXXXXXXXX...", ".XXXXXXXXXXXXX.", "XXXXXXXXXXXXXXX", "XXXooXXXXXooXXX", "XXXooXXXXXooXXX", "XXXXXXXXXXXXXXX", ".XXXXXXXXXXXXX.", "..XX.XX.XX.XX.."];
+for (const id of ["logoT1", "logoT2"]) {
+  const svg = document.getElementById(id);
+  MASCOT.forEach((row, y) => [...row].forEach((c, x) => {
+    if (c === ".") return;
+    const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    Object.entries({ x, y, width: 1, height: 1, fill: c === "o" ? (id.startsWith("logoX") ? "#07150a" : "#1a1424") : id.startsWith("logoT") ? "#f6ead0" : id.startsWith("logoX") ? "#ffffff" : "#d9d3e6" }).forEach(([k, v]) => r.setAttribute(k, v));
+    svg.appendChild(r);
+  }));
+}
+
+// ---------- fit the stage to the window ----------
+// cover the window edge to edge (the window keeps the stage's shape, so almost nothing is cut)
+let stageScale = 1;
+function fit() { const s = Math.max(innerWidth / 1672, innerHeight / 940); stageScale = s; for (const st of [document.getElementById("xstage"), document.getElementById("tstage")]) st.style.transform = `translate(-50%, -50%) scale(${s})`; }
+addEventListener("resize", fit); fit();
+
+// ---------- bridge to the Mac app (falls back to a demo in a normal browser) ----------
+const native = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.arcade);
+function send(cmd, data = {}) {
+  if (native) window.webkit.messageHandlers.arcade.postMessage({ cmd, ...data });
+  else demo(cmd, data);
+}
+function demo(cmd, data) {
+  if (cmd === "list") setTimeout(() => receive({ type: "list", games: [
+    { id: "demo-1", name: "Your game here", kind: "app", thumb: null },
+    { id: "demo-2", name: "Another game", kind: "app", thumb: null },
+  ], favorites: [] }), 50);
+  if (cmd === "launch") { S.credits--; receive({ type: "running", id: data.id }); setTimeout(() => receive({ type: "stopped", id: data.id }), 2500); }
+  if (cmd === "add" || cmd === "reveal") toast("Open Coinsole.app to add games");
+}
+
+// ---------- state ----------
+const store = { get(k, d) { try { const v = localStorage.getItem("arcade." + k); return v === null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem("arcade." + k, JSON.stringify(v)); } catch {} } };
+const S = { skinPref: store.get("skin", "auto"), paused: false, pad: { connected: false, name: "", battery: -1 }, games: [], favorites: [], sel: 0, view: "home", credits: native ? 0 : 10, running: null, web: null, gridSel: 0, setSel: 0, confirm: null, topScore: 0,
+  sound: store.get("sound", true) };
+const VERSION = "1.0";
+// button names for the controller in use: Xbox letters, or PlayStation symbols
+const PS_NAMES = { a: "✕", b: "○", x: "□", y: "△", l: "L1", r: "R1" }, XB_NAMES = { a: "A", b: "B", x: "X", y: "Y", l: "L", r: "R" };
+const BTN = (k) => (S.ps ? PS_NAMES : XB_NAMES)[k];
+// the same name inside pixel-font text: that font draws ✕ ○ □ △ as specks, so the symbols get a readable one
+const PXBTN = (k) => (S.ps && "abxy".includes(k) ? `<span class="sym">${BTN(k)}</span>` : BTN(k));
+function setButtonNames() {
+  for (const k of ["a", "b", "x", "y"]) document.querySelectorAll(".glyph." + k).forEach((e) => (e.textContent = BTN(k)));
+  document.querySelectorAll(".xfoot .kl").forEach((e) => (e.textContent = BTN("l")));
+  document.querySelectorAll(".xfoot .kr").forEach((e) => (e.textContent = BTN("r")));
+  document.querySelector("#xpadinfo .h").textContent = `HOLD ${BTN("b")} OR PRESS ESC TO GO BACK`;
+}
+function openWebsite() { beep("start"); if (native) send("website"); else window.open("https://faustomelchiorre.com/", "_blank"); }
+const cur = () => S.games[S.sel];
+const onAdd = () => S.view === "home" && S.sel >= S.games.length;   // "Add game" is selected
+// two looks share one layout: dark Xbox and light PlayStation. scr() is the screen games and menus are drawn on
+const scr = () => document.getElementById("xscreen");
+const crtEl = () => document.getElementById(S.theater ? "tcrt" : "xcrt");
+const SKIN_NAMES = { xbox: "DARK", ps: "LIGHT", auto: "AUTO" };
+const LOOKS = Object.keys(SKIN_NAMES);
+function setLook(look) { S.skinPref = look; store.set("skin", look); }
+const stepLook = (d) => setLook(LOOKS[(LOOKS.indexOf(S.skinPref) + d + LOOKS.length) % LOOKS.length]);
+// auto: follow the connected controller; with none connected (e.g. the pad is asleep) keep the look of the last one used
+const skinForPad = (name, kind) => (kind === "ps" || /dualsense|dualshock|playstation|ps5|ps4/i.test(name || "") ? "ps" : "xbox");
+if (!LOOKS.includes(S.skinPref)) setLook("auto");          // an older choice, from a look that no longer exists
+function effectiveSkin() {
+  const eff = S.skinPref !== "auto" ? S.skinPref : S.pad.connected ? skinForPad(S.pad.name, S.pad.kind) : store.get("lastPadSkin", "xbox");
+  return eff === "ps" ? "ps" : "xbox";
+}
+function applySkin() {
+  const ps = effectiveSkin() === "ps";
+  if (ps === S.ps) return;
+  S.ps = ps;
+  document.body.classList.toggle("skin-ps", ps);
+  setButtonNames();
+  crtEl().appendChild(document.getElementById("toast"));
+}
+const isFav = (g) => g && S.favorites.includes(g.id);
+const pageGames = () => (S.view === "favorites" ? S.games.filter(isFav) : S.games);
+
+// ---------- launch: the console lights up and the pad flies in (about two seconds; any button skips it) ----------
+const boot = { on: true, started: false, anims: [], timers: [] };
+function playIntro() {
+  if (boot.started || !boot.on) return;
+  boot.started = true;
+  document.body.classList.remove("booting");
+  const out = "cubic-bezier(.2,.8,.2,1)", spring = "cubic-bezier(.2,.9,.25,1.2)";
+  // each animation holds its first frame until its turn ("backwards"), then leaves the element as the styles have it
+  const go = (sel, frames, delay, duration, { easing = out, step = 0 } = {}) =>
+    document.querySelectorAll(sel).forEach((el, i) => boot.anims.push(el.animate(frames, { delay: delay + i * step, duration, easing, fill: "backwards" })));
+  const rise = (x, y, k = 1) => [{ opacity: 0, transform: `translate(${x}px, ${y}px) scale(${k})` }, { opacity: 1, transform: "none" }];
+  const flicker = [{ opacity: 0 }, { opacity: 0.9, offset: 0.18 }, { opacity: 0.1, offset: 0.34 }, { opacity: 1, offset: 0.52 }, { opacity: 0.35, offset: 0.66 }, { offset: 1 }];
+  // 1. the floor lines flicker on, then the screen opens like an old tube
+  go(".xarc", [{ opacity: 0, transform: "scaleX(.35)" }, { opacity: 1, offset: 0.35 }, { opacity: 0.25, offset: 0.5 }, { opacity: 1, transform: "none" }], 0, 800, { step: 90 });
+  go("#xframe, #xcrt", [{ opacity: 0, transform: "scale(.6, .006)", filter: "brightness(5)" }, { opacity: 1, transform: "scale(1, .008)", filter: "brightness(4)", offset: 0.35 },
+    { transform: "scale(1, 1.02)", filter: "brightness(1.7)", offset: 0.78 }, { opacity: 1, transform: "none", filter: "brightness(1)" }], 180, 640);
+  // 2. the pad flies up, its lights come on and the four buttons run once round
+  go(".xpad", [{ opacity: 0, transform: "translateY(430px) scale(.86)" }, { opacity: 1, offset: 0.35 }, { opacity: 1, transform: "none" }], 380, 820, { easing: spring });
+  go("#xpad .rim, #xpad .rimglow, #xpad .accent, #xpad .led, #xpad .spark, #pspad .lampline", flicker, 1020, 700, { easing: "linear" });
+  go("#xp-dash, #ps-dash", [{ opacity: 0 }, { opacity: 1 }], 1280, 380);
+  const pad = S.ps ? "ps" : "xp";
+  [3, 1, 0, 2].forEach((i, k) => {
+    const key = document.getElementById(`${pad}-b${i}`);
+    boot.timers.push(setTimeout(() => key?.classList.add("on"), 1360 + k * 100), setTimeout(() => key?.classList.remove("on"), 1540 + k * 100));
+  });
+  // 3. the words and parts arrive around it
+  go(".xbrand", rise(-60, 0), 420, 520);
+  go("#xnav button", rise(0, -34), 520, 460, { step: 60 });
+  go("#xwallet, .xpower, #xprofile", rise(0, 0, 0.4), 840, 420, { easing: spring, step: 70 });
+  go("#xicon", [{ opacity: 0, transform: "scale(.3) rotate(-14deg)" }, { opacity: 1, transform: "none" }], 700, 520, { easing: spring });
+  const heading = document.getElementById("xtitle");
+  heading.innerHTML = heading.textContent.split(/(?<= )/).map((w) => `<span class="xword">${esc(w)}</span>`).join("");
+  go("#xtitle .xword", rise(0, 38), 800, 460, { step: 110 });
+  go("#xmeta, .xdesc", rise(0, 18), 1000, 440, { step: 90 });
+  go(".xbtns .xbtn", rise(-70, 0), 1080, 460, { step: 85 });
+  go(".xlabel", rise(40, 0), 780, 420);
+  go("#xrows .xrow, #xadd", rise(80, 0), 860, 480, { step: 85 });
+  go(".xfoot", rise(0, 26), 1400, 420, { step: 60 });
+  boot.timers.push(setTimeout(() => beep("coin"), 1150), setTimeout(endIntro, 2150));
+}
+function endIntro() {
+  if (!boot.on) return;
+  boot.on = false;
+  boot.timers.forEach(clearTimeout);
+  boot.anims.forEach((a) => a.finish());
+  document.querySelectorAll("#xpad .face.on, #pspad .face.on").forEach((e) => e.classList.remove("on"));
+  const heading = document.getElementById("xtitle"); heading.textContent = heading.textContent;
+  document.body.classList.remove("booting");
+}
+// a key or a click during the animation only skips it: it must not start a game or spend a credit
+addEventListener("keydown", (e) => { if (boot.on && !e.metaKey) { e.preventDefault(); e.stopImmediatePropagation(); endIntro(); } }, true);
+let skipped = 0;
+addEventListener("pointerdown", () => { if (boot.on) { skipped = performance.now(); endIntro(); } }, true);
+addEventListener("click", (e) => { if (performance.now() - skipped < 500) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+
+function receive(msg) {
+  if (msg.type === "list") {
+    if (!boot.started) setTimeout(playIntro, 120);        // a moment for the wallet and controller to report too
+    S.waitingAccess = false;
+    const keep = cur() && cur().id;
+    S.games = msg.games; S.favorites = msg.favorites || [];
+    const i = S.games.findIndex((g) => g.id === (msg.select || keep));
+    S.sel = i >= 0 ? i : Math.min(S.sel, Math.max(0, S.games.length - 1));
+    render();
+  } else if (msg.type === "wallet") { const up = msg.credits > S.credits; S.credits = msg.credits; if (up) coinPop(); render(); }
+  else if (msg.type === "needCredits") { beep("err"); toast("OUT OF CREDITS: GET MORE AT THE TOKEN MACHINE"); setView("credits"); }
+  else if (msg.type === "spent") { S.spending = null; const g = S.games.find((x) => x.id === msg.id); if (g && !S.web) { playWeb(g); render(); } }
+  else if (msg.type === "theater") { S.theater = !!msg.on; document.body.classList.toggle("theater", S.theater); render(); }
+  else if (msg.type === "running") { S.running = msg.id; S.paused = false; S.gameWaiting = false; render(); }
+  else if (msg.type === "stopped") { if (S.running === msg.id) { S.running = null; S.paused = false; S.gameWaiting = false; } render(); }
+  else if (msg.type === "gameWaiting") { if (S.running === msg.id) { S.gameWaiting = true; render(); } }
+  else if (msg.type === "paused") { if (S.running) { S.paused = true; render(); } }
+  else if (msg.type === "access") { S.waitingAccess = !!msg.waiting; render(); }
+  else if (msg.type === "pad") {
+    nativePad = msg; if (S.ps) updatePsPad(); else updateXPad();
+    // a game playing on the screen gets the controller too
+    if (S.web) webFrame()?.contentWindow?.postMessage({ type: "arcade-pad", b: msg.b, a: msg.a }, "*");
+    const guide = !!(msg.b || [])[16];
+    if (guide && !S.guideWasDown && !boot.on) toggleBigScreen();                     // the Xbox / PS button: big screen on/off
+    S.guideWasDown = guide;
+  }
+  else if (msg.type === "padStatus") {
+    const was = S.pad.connected; S.pad = msg;
+    if (msg.connected) store.set("lastPadSkin", skinForPad(msg.name, msg.kind));
+    if (msg.connected && !was) toast("CONTROLLER CONNECTED"); else if (!msg.connected && was) toast("CONTROLLER DISCONNECTED");
+    renderPadStatus(); if (S.view === "padtest") { renderScreen(); renderX(); }
+  }
+  else if (msg.type === "toast") toast(msg.text);
+  else if (msg.type === "exitGame") exitWeb();
+  else if (msg.type === "dragging") document.body.classList.toggle("dropping", !!msg.on);
+}
+window.arcadeReceive = receive;
+
+// ---------- sound (tiny synth, no files) ----------
+let ac;
+function beep(kind) {
+  if (!S.sound) return;
+  try {
+    ac = ac || new AudioContext();
+    const seq = { move: [[660, 0.04]], coin: [[988, 0.07], [1319, 0.22]], start: [[523, 0.08], [659, 0.08], [784, 0.08], [1047, 0.25]], back: [[440, 0.06], [330, 0.1]], fav: [[880, 0.06], [1175, 0.12]], err: [[180, 0.2]] }[kind] || [[600, 0.05]];
+    let t = ac.currentTime;
+    for (const [f, d] of seq) {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = "square"; o.frequency.value = f; g.gain.setValueAtTime(0.06, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(g).connect(ac.destination); o.start(t); o.stop(t + d); t += d * 0.9;
+    }
+  } catch {}
+}
+let toastTimer;
+function toast(text) { const el = document.getElementById("toast"); el.textContent = text; el.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 2600); }
+
+// ---------- rendering ----------
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function art(g) {
+  if (g && g.thumb) return `url("${g.thumb}")`;
+  const hue = g ? [...g.name].reduce((a, c) => a + c.charCodeAt(0), 0) % 360 : 260;
+  return `linear-gradient(135deg, hsl(${hue} 70% 35%), hsl(${(hue + 60) % 360} 70% 18%))`;
+}
+function render() {
+  applySkin();
+  renderX();
+  setTimeout(placeWeb, 0);
+  document.getElementById("xwalletN").textContent = S.credits;
+  const note = document.getElementById("toast"); if (note.parentNode !== crtEl()) crtEl().appendChild(note);   // messages follow the screen in use
+  // big screen: the running game's name on the marquee, credits on the deck, and a word when it waits
+  if (S.theater) {
+    const g = S.games.find((x) => x.id === (S.running || S.web)) || cur();
+    layoutTheater(g);
+    document.getElementById("tname").textContent = (g ? g.name : "COINSOLE").toUpperCase();
+    document.getElementById("tcredits").textContent = S.credits;
+    document.getElementById("tpad").textContent = S.pad.connected ? `${(/xbox/i.test(S.pad.name) ? "XBOX CONTROLLER" : /dualsense/i.test(S.pad.name) ? "DUALSENSE" : S.pad.name.toUpperCase())} CONNECTED` : "NO CONTROLLER";
+    document.getElementById("tmsg").innerHTML = S.paused ? `<div class="blink">PAUSED</div><small>PRESS ${PXBTN("a")} TO PLAY ON</small>`
+      : idleBigScreen() && g ? `<div class="idle" style='background-image:${art(g)}'></div><div class="go blink">PRESS ${PXBTN("a")} TO PLAY</div>` : "";
+  }
+  document.getElementById("xwallet").classList.toggle("on", S.view === "credits");
+  renderScreen();
+}
+// a game can say its shape in its info file, e.g. "aspect": "8:7" (default: widescreen 16:9)
+function aspectOf(g) {
+  const a = g && g.info && g.info.aspect;
+  if (typeof a === "number" && a > 0) return a;
+  const m = typeof a === "string" && a.match(/^\s*(\d+(?:\.\d+)?)\s*[:x\/]\s*(\d+(?:\.\d+)?)\s*$/);
+  return m && +m[2] > 0 ? +m[1] / +m[2] : 16 / 9;
+}
+// big screen: the screen takes the game's shape (4:3, or wide for a 16:9 game), centred in the bezel
+function layoutTheater(g) {
+  const a = aspectOf(g), cx = 836, cy = 477;
+  let H = 630, W = Math.round(H * a);
+  if (W > 1000) { W = 1000; H = Math.round(W / a); }
+  const crt = document.getElementById("tcrt");
+  Object.assign(crt.style, { left: Math.round(cx - W / 2) + "px", top: Math.round(cy - H / 2) + "px", width: W + "px", height: H + "px" });
+  document.querySelectorAll("#tstage .tframe").forEach((r) => {
+    r.setAttribute("x", Math.round(cx - W / 2) - 3); r.setAttribute("y", Math.round(cy - H / 2) - 3);
+    r.setAttribute("width", W + 6); r.setAttribute("height", H + 6); r.setAttribute("rx", 21);
+  });
+}
+function layoutXScreen(g) {
+  const H = 519, W = Math.min(923, Math.round(H * aspectOf(g))), L = Math.round(836.5 - W / 2);   // 923 = 16:9
+  for (const id of ["xcrt", "xframe"]) Object.assign(document.getElementById(id).style, { left: L + "px", width: W + "px" });
+}
+// the little screen on both pads. Next to the big game screen it shows your credits and the pad;
+// on the controller page, where the game is out of sight, it shows the game's cover and name
+function updatePadScreen() {
+  updatePsScreen();
+  const box = document.getElementById("xp-game"), dash = document.getElementById("xp-dash"); if (!box || !dash) return;
+  const full = S.view === "padtest";
+  const playing = S.games.find((x) => x.id === (S.web || S.running)) || null;
+  const g = playing || cur() || null;
+  const showGame = full && !!g;
+  box.style.display = showGame ? "" : "none";
+  dash.style.display = full ? "none" : "";
+  box.parentNode.querySelector(".idle").style.display = showGame ? "none" : "";
+  const short = (t, n) => (t.length > n ? t.slice(0, n - 1) + "\u2026" : t);
+  const text = (id, t) => (document.getElementById(id).textContent = t);
+  if (!full) {
+    text("xp-dnum", String(S.credits));
+    text("xp-dpad", !S.pad.connected ? "NO CONTROLLER" : S.pad.battery >= 0 ? `BATTERY ${S.pad.battery}%` : "PAD READY");
+    text("xp-dhint", playing ? "NOW PLAYING" : onAdd() ? "A = ADD GAME" : S.credits < 1 ? "VIEW = CREDITS" : "A = PLAY");
+    return;
+  }
+  if (!showGame) return;
+  const thumb = g.thumb || "";
+  for (const id of ["xp-gart", "xp-gback"]) { const el = document.getElementById(id); if (thumb) { if (el.getAttribute("href") !== thumb) el.setAttribute("href", thumb); } else el.removeAttribute("href"); }
+  document.getElementById("xp-gbg").style.fill = thumb ? "#05090b" : `hsl(${[...g.name].reduce((a, c) => a + c.charCodeAt(0), 0) % 360} 60% 22%)`;
+  box.classList.toggle("playing", !!playing);
+  text("xp-gname", (playing ? "\u25B6 " : "") + short(g.name, 24));
+}
+function updatePsScreen() {
+  const box = document.getElementById("ps-game"), dash = document.getElementById("ps-dash"); if (!box || !dash) return;
+  const playing = S.games.find((x) => x.id === (S.web || S.running)) || null;
+  const g = playing || cur() || null, showGame = S.view === "padtest" && !!g;
+  const text = (id, t) => (document.getElementById(id).textContent = t);
+  const battery = !S.pad.connected ? "" : S.pad.battery >= 0 ? `${S.pad.battery}%` : "";
+  box.style.display = showGame ? "" : "none";
+  dash.style.display = showGame ? "none" : "";
+  text("ps-dnum", String(S.credits));
+  text("ps-dpad", !S.pad.connected ? "NO CONTROLLER" : battery ? `BATTERY ${battery}` : "PAD READY");
+  text("ps-dhint", playing ? "NOW PLAYING" : onAdd() ? "X = ADD GAME" : S.credits < 1 ? "CREATE = CREDITS" : "X = PLAY");
+  if (!showGame) return;
+  const art = document.getElementById("ps-gart"), thumb = g.thumb || "";
+  if (!thumb) art.removeAttribute("href"); else if (art.getAttribute("href") !== thumb) art.setAttribute("href", thumb);
+  document.getElementById("ps-gbg").style.fill = `hsl(${[...g.name].reduce((a, c) => a + c.charCodeAt(0), 0) % 360} 60% 24%)`;
+  text("ps-glabel", playing ? "Now playing" : "Selected");
+  text("ps-gname", g.name.length > 19 ? g.name.slice(0, 18) + "\u2026" : g.name);
+  text("ps-tcredits", String(S.credits));
+  text("ps-tfav", isFav(g) ? "\u2665" : "\u2661");
+  text("ps-tbatt", battery || "--");
+}
+// the Dark / Light / Auto buttons on the controller page
+const LOOK_LABELS = { xbox: "Dark", ps: "Light", auto: "Auto" };
+function renderLookButtons() {
+  const box = document.getElementById("xpadlooks");
+  if (!box.childElementCount) {
+    box.innerHTML = LOOKS.map((k) => `<button data-look="${k}">${LOOK_LABELS[k]}</button>`).join("");
+    box.querySelectorAll("button").forEach((b) => b.onclick = () => { setLook(b.dataset.look); beep("start"); b.blur(); render(); });
+  }
+  box.querySelectorAll("button").forEach((b) => { b.classList.toggle("on", b.dataset.look === S.skinPref); b.setAttribute("aria-pressed", b.dataset.look === S.skinPref); });
+}
+function renderX() {
+  updatePadScreen();
+  renderLookButtons();
+  const g = cur(), i = (g && g.info) || {};
+  document.getElementById("xadd").classList.toggle("sel", onAdd());
+  layoutXScreen(g);
+  document.body.classList.toggle("xpadview", S.view === "padtest");
+  if (S.view === "padtest") {
+    document.getElementById("xpadname").innerHTML = S.pad.connected ? (S.pad.battery >= 0 ? `<small>BATTERY ${S.pad.battery}%</small>` : "") : "No controller connected";
+    if (!S.pad.connected) document.getElementById("xpadlast").textContent = `PRESS THE ${S.ps ? "PS" : "XBOX"} BUTTON TO WAKE IT, OR PAIR IT IN SYSTEM SETTINGS › BLUETOOTH`;
+    else if (!document.getElementById("xpadlast").textContent || /^PRESS THE XBOX/.test(document.getElementById("xpadlast").textContent)) document.getElementById("xpadlast").textContent = "PRESS ANY BUTTON";
+  }
+  document.querySelectorAll("#xnav button").forEach((b) => b.classList.toggle("on", b.dataset.view === S.view || (["info", "exit", "padtest"].includes(S.view) && b.dataset.view === "home" && S.view === "info")));
+  document.getElementById("xicon").style.backgroundImage = g ? (g.icon ? `url("${g.icon}")` : art(g)) : "none";   // its badge, else its cover
+  const titleEl = document.getElementById("xtitle"), title = g ? g.name : onAdd() && S.games.length ? "Add game" : "No games yet";
+  if (titleEl.textContent !== title) titleEl.textContent = title;
+  document.getElementById("xmeta").textContent = g ? [i.publisher, i.year].filter(Boolean).join(" · ") || (g.kind === "web" ? "Web game" : "Mac game") : "";
+  document.getElementById("xdesc").textContent = g ? i.description || "" : "Copy a Mac game (.app), a game folder or an HTML game into Coinsole. Press A to choose one, or drop it on this window.";
+  document.getElementById("xfavlabel").textContent = isFav(g) ? "Favorited ♥" : "Favorite";
+  const rows = document.getElementById("xrows");
+  const start = Math.max(0, Math.min(S.sel - 1, S.games.length - 4));
+  const html = S.games.slice(start, start + 4).map((gm, k) => `<button class="xrow${start + k === S.sel ? " sel" : ""}" data-i="${start + k}"><div class="th" style='background-image:${art(gm)}'></div><div class="nm">${esc(gm.name)}${isFav(gm) ? " ♥" : ""}</div></button>`).join("");
+  if (rows.shown !== html) { rows.innerHTML = html; rows.shown = html; }
+  rows.querySelectorAll(".xrow").forEach((r) => r.onclick = () => { const n = +r.dataset.i; if (n === S.sel && S.view === "home") start1P(); else { S.sel = n; S.view = "home"; beep("move"); render(); } });
+}
+function updatePsPad() {
+  const b = nativePad.b || [], a = nativePad.a || [], t = nativePad.t || [];
+  for (const i of [0, 1, 2, 3, 4, 5, 8, 9, 12, 13, 14, 15, 16]) document.getElementById("ps-b" + i)?.classList.toggle("on", !!b[i]);
+  const tilt = (n, x, y, click) => { const g = document.getElementById("ps-" + n); g.setAttribute("transform", `translate(${(x || 0) * 30} ${(y || 0) * 30})`); g.classList.toggle("on", !!click); };
+  tilt("ls", a[0], a[1], b[10]); tilt("rs", a[2], a[3], b[11]);
+  for (const [id, v] of [["ps-lt", t[0]], ["ps-rt", t[1]]]) { const el = document.getElementById(id); el.style.fill = v > 0.02 ? `rgba(0,112,209,${0.4 + 0.6 * v})` : ""; }
+  if (S.view === "padtest") {
+    const PS = ["✕", "○", "□", "△", "L1", "R1", "L2", "R2", "CREATE", "OPTIONS", "L3", "R3", "UP", "DOWN", "LEFT", "RIGHT", "PS"];
+    const now = PS.filter((n, i) => b[i]);
+    const moved = [Math.hypot(a[0] || 0, a[1] || 0) > 0.3 ? "LEFT STICK" : "", Math.hypot(a[2] || 0, a[3] || 0) > 0.3 ? "RIGHT STICK" : "", (t[0] || 0) > 0.1 ? "L2" : "", (t[1] || 0) > 0.1 ? "R2" : ""].filter(Boolean);
+    if (now.length || moved.length) document.getElementById("xpadlast").textContent = [...now, ...moved].join(" + ");
+  }
+}
+function updateXPad() {
+  const b = nativePad.b || [], a = nativePad.a || [], t = nativePad.t || [];
+  const on = (id, v) => document.getElementById(id)?.classList.toggle("on", !!v);
+  for (const i of [0, 1, 2, 3, 4, 5, 8, 9, 12, 13, 14, 15, 16]) on("xp-b" + i, b[i]);
+  // a diagonal also lights the corner between its two directions, so the arc is unbroken
+  for (const [u, v] of [[12, 15], [13, 15], [13, 14], [12, 14]]) on(`xp-c${u}-${v}`, b[u] && b[v]);
+  // pressed face buttons sink a little, like the real ones
+  for (const [i, cx, cy] of [[0, 1501, 422], [1, 1587, 336], [2, 1415, 336], [3, 1501, 250]]) document.querySelector(`#xp-b${i} > g`).setAttribute("transform", `translate(${cx} ${cy + (b[i] ? 5 : 0)}) scale(${b[i] ? 0.94 : 1})`);
+  // sticks tilt with the real ones and light up when clicked (L3 / R3)
+  const tilt = (n, x, y, click) => { const g = document.getElementById("xp-" + n); g.setAttribute("transform", `translate(${(x || 0) * 30} ${(y || 0) * 30})`); g.classList.toggle("on", !!click); };
+  tilt("ls", a[0], a[1], b[10]); tilt("rs", a[2], a[3], b[11]);
+  // triggers fill with light as you squeeze them
+  for (const [id, v] of [["xp-lt", t[0]], ["xp-rt", t[1]]]) { const el = document.getElementById(id); el.style.fill = v > 0.02 ? `rgba(61,220,132,${0.35 + 0.65 * v})` : ""; el.style.filter = v > 0.5 ? "drop-shadow(0 0 10px #3ddc84)" : ""; }
+  if (S.view === "padtest") {
+    const now = PAD_NAMES.filter((n, i) => b[i]);
+    const moved = [Math.hypot(a[0] || 0, a[1] || 0) > 0.3 ? "LEFT STICK" : "", Math.hypot(a[2] || 0, a[3] || 0) > 0.3 ? "RIGHT STICK" : "", (t[0] || 0) > 0.1 ? "LT" : "", (t[1] || 0) > 0.1 ? "RT" : ""].filter(Boolean);
+    if (now.length || moved.length) document.getElementById("xpadlast").textContent = [...now, ...moved].join(" + ");
+  }
+}
+function showInfo() { if (!cur()) return; if (S.web || idleBigScreen()) return; beep("move"); S.view = S.view === "info" ? "home" : "info"; render(); }
+function renderScreen() {
+  updatePadScreen();
+  const el = scr();
+  if (S.web) return; // a web game is playing in the screen
+  const g = cur(), credit = `CREDIT ${S.credits}`;
+  const top = `<div class="abs hud top"><div><div class="yellow">PLAYER 1</div><div class="white">${credit}</div></div><div style="text-align:right"><div class="pink">TOP SCORE</div><div class="white">${String(S.topScore || 10000).padStart(6, " ")}</div></div></div>`;
+  if (S.view === "padtest") return;          // the controller page shows the big controller instead of the screen
+  if (S.view === "info") {
+    const g = cur(), i = (g && g.info) || {};
+    el.innerHTML = g ? `<div class="layer xinfo-card" style="background:linear-gradient(180deg,rgba(0,0,0,0.75),rgba(0,0,0,0.92)),${art(g)} center/cover"><h2>${esc(g.name)}</h2><div class="m">${esc([i.publisher, i.year].filter(Boolean).join(" · ") || (g.kind === "web" ? "Web game" : "Mac game"))}</div><p>${esc(i.description || "No description yet. Add a \"" + g.name + ".json\" file next to the game with a publisher, year, description and controls.")}</p>${i.controls ? `<div class="c">${esc(i.controls)}</div>` : ""}<div class="pt-hint" style="text-align:left;margin-top:22px">PRESS B OR ESC TO GO BACK · A TO PLAY</div></div>` : "";
+    return;
+  }
+  if (S.view === "exit") { el.innerHTML = `<div class="empty"><div class="big">QUIT COINSOLE?</div><div class="small">PRESS START (ENTER OR A) TO QUIT<br>ESC OR B TO STAY</div></div>`; return; }
+  if (!S.games.length && S.waitingAccess) {
+    el.innerHTML = `<div class="empty"><div class="big blink">ONE MOMENT</div><div class="small">MACOS IS ASKING IF COINSOLE<br>MAY OPEN ITS GAMES FOLDER<br>ON YOUR DESKTOP.<br><br>CLICK ALLOW IN THAT DIALOG.</div></div>`;
+    return;
+  }
+  if (onAdd() && S.games.length) {
+    el.innerHTML = `<div class="empty"><div class="big">ADD A GAME</div><div class="small">PRESS ${PXBTN("a")} TO CHOOSE A GAME<br>(.APP, A GAME FOLDER OR AN HTML GAME)<br><br>OR DROP IT ON THIS WINDOW</div></div>`;
+    return;
+  }
+  if (!S.games.length) {
+    el.innerHTML = `<div class="empty"><div class="big blink">INSERT GAME</div><div class="small">DROP A GAME (.APP, A FOLDER<br>OR AN HTML GAME) ON THIS WINDOW<br>OR PRESS ADD GAME</div></div>`;
+    return;
+  }
+  if (S.view === "games" || S.view === "favorites") {
+    const list = pageGames(), per = 8;
+    S.gridSel = Math.min(S.gridSel, Math.max(0, list.length - 1));
+    const p0 = Math.floor(S.gridSel / per) * per;
+    el.innerHTML = `<div class="layer screen-page"><h2>${S.view === "games" ? "ALL GAMES" : "FAVORITES"} <span style="color:#b9b2cc;font-size:11px">${list.length}</span></h2>` +
+      (list.length ? `<div class="grid">${list.slice(p0, p0 + per).map((g, k) => `<div class="tile${p0 + k === S.gridSel ? " sel" : ""}" data-k="${p0 + k}"><div class="img" style='background-image:${art(g)}'></div><div class="name">${isFav(g) ? "♥ " : ""}${esc(g.name)}</div></div>`).join("")}</div>`
+        : `<div class="empty"><div class="small">NO FAVORITES YET.<br>PRESS F ON A GAME TO ADD IT.</div></div>`) + `</div>`;
+    el.querySelectorAll(".tile").forEach((t) => t.onclick = () => { const k = +t.dataset.k; if (k === S.gridSel) start1P(); else { S.gridSel = k; beep("move"); renderScreen(); } });
+    return;
+  }
+  if (S.view === "credits") {
+    S.buySel = Math.min(S.buySel || 0, PACKS.length - 1);
+    el.innerHTML = `<div class="layer screen-page"><h2>TOKEN MACHINE</h2><div class="wallet-line">YOU HAVE ${S.credits} CREDIT${S.credits === 1 ? "" : "S"}</div><div class="demo-note" style="margin:-8px 0 18px">PLAY = 1 CREDIT · EXTRA COIN IN A GAME = 1 CREDIT</div><ul class="menu-list packs">${PACKS.map((p, i) => `<li class="${i === S.buySel ? "sel" : ""}" data-i="${i}"><span>${p.n} CREDITS</span><span class="bonus">${p.bonus || ""}</span></li>`).join("")}</ul><div class="demo-note">DEMO TOKEN MACHINE: NO REAL MONEY IS CHARGED · A = BUY · B = BACK</div></div>`;
+    el.querySelectorAll("li").forEach((li) => li.onclick = () => { const i = +li.dataset.i; if (i === S.buySel) buyPack(); else { S.buySel = i; beep("move"); renderScreen(); } });
+    return;
+  }
+  if (S.view === "about") {
+    el.innerHTML = `<div class="layer screen-page about"><h2>COINSOLE</h2><div class="ab-v">VERSION ${VERSION}</div>
+      <div class="ab-by">MADE BY FAUSTO MELCHIORRE</div>
+      <button class="ab-link" id="abLink">FAUSTOMELCHIORRE.COM</button>
+      <div class="ab-small">FREE AND OPEN SOURCE · AGPL-3.0 LICENCE<br>ARTWORK CC BY-NC 4.0 · FONTS: PRESS START 2P, INTER (OFL)</div>
+      <div class="pt-hint">${PXBTN("a")} = OPEN WEBSITE · ${PXBTN("b")} = BACK</div></div>`;
+    document.getElementById("abLink").onclick = openWebsite;
+    return;
+  }
+  if (S.view === "settings") {
+    const items = settingsItems();
+    S.setSel = Math.min(S.setSel, items.length - 1);
+    const chips = () => LOOKS.map((k) => `<button class="chip${S.skinPref === k ? " on" : ""}" data-look="${k}" aria-pressed="${S.skinPref === k}">${SKIN_NAMES[k]}</button>`).join("");
+    el.innerHTML = `<div class="layer screen-page"><h2>SETTINGS</h2><ul class="menu-list">${items.map((it, i) => `<li class="${i === S.setSel ? "sel" : ""}${it.look ? " look" : ""}" data-i="${i}">${esc(it.label)}${it.look ? chips() : ""}</li>`).join("")}</ul></div>`;
+    el.querySelectorAll(".chip").forEach((c) => c.onclick = (e) => { e.stopPropagation(); S.setSel = 0; S.confirm = null; setLook(c.dataset.look); beep("start"); render(); });
+    el.querySelectorAll("li").forEach((li) => li.onclick = () => { const i = +li.dataset.i; if (i === S.setSel) activateSetting(); else { S.setSel = i; beep("move"); renderScreen(); } });
+    { // a long list scrolls (only inside the screen) to keep the chosen item in view
+      const page = el.querySelector(".screen-page"), li = el.querySelector("li.sel");
+      if (page && li) { const top = li.offsetTop - page.clientHeight / 2 + li.offsetHeight / 2; page.scrollTop = Math.max(0, top); }
+    }
+    return;
+  }
+  // home: attract screen for the selected game
+  const playing = S.running === g.id;
+  if (!playing) {
+    el.innerHTML = `<div class="layer cover" style='background-image:${art(g)}'></div><div class="abs xhint blink"><span class="glyph a">${BTN("a")}</span>PRESS ${PXBTN("a")} TO PLAY</div>`;
+    return;
+  }
+  el.innerHTML = `<div class="layer cover dim" style='background-image:${art(g)}'></div><div class="layer attract-shade"></div>${top}
+    <div class="abs hud title">${esc(g.name)}</div>
+    ${S.paused ? `<div class="abs hud press blink">PAUSED</div><div class="abs hud hint">${PXBTN("a")} = RESUME · HOLD ${PXBTN("b")} OR PRESS ESC = QUIT GAME</div>`
+    : S.gameWaiting ? `<div class="abs hud press blink">WAITING FOR THE GAME</div><div class="abs hud hint">IT HAS NOT OPENED YET: LOOK FOR A MACOS DIALOG ON ANY SCREEN · ESC = CANCEL</div>`
+    : `<div class="abs hud press">NOW PLAYING</div><div class="abs hud hint">${S.ps ? "PS" : "XBOX"} BUTTON = FULL SCREEN · HOLD IT = BACK HERE</div>`}`;
+}
+function settingsItems() {
+  const g = cur();
+  return [
+    { label: "LOOK", look: true, run: () => stepLook(1) },
+    { label: `TOKEN MACHINE: BUY CREDITS (YOU HAVE ${S.credits})`, run: () => setView("credits") },
+    { label: "OPEN GAMES FOLDER", run: () => send("reveal") },
+    { label: "ADD GAMES", run: () => send("add") },
+    ...(g ? [
+      { label: `CHANGE COVER: ${g.name}`, run: () => send("cover", { id: g.id }) },
+      { label: S.confirm === "remove" ? `PRESS START AGAIN TO REMOVE ${g.name}` : `REMOVE: ${g.name} (TO TRASH)`, run: () => { if (S.confirm === "remove") { S.confirm = null; send("remove", { id: g.id }); } else { S.confirm = "remove"; beep("err"); } } },
+    ] : []),
+    { label: `SOUND EFFECTS: ${S.sound ? "ON" : "OFF"}`, run: () => { S.sound = !S.sound; store.set("sound", S.sound); } },
+    { label: "TEST CONTROLLER", run: () => setView("padtest") },
+    { label: "FULL SCREEN / WINDOW (CTRL+CMD+F)", run: () => send("fullscreen") },
+    { label: "ABOUT COINSOLE", run: () => setView("about") },
+    { label: "QUIT COINSOLE (CMD+Q)", run: () => send("quit") },
+  ];
+}
+function activateSetting() {
+  const it = settingsItems()[S.setSel];
+  if (!it) return;
+  if (!it.label.includes("REMOVE")) S.confirm = null;
+  beep("start"); it.run(); render();
+}
+
+// ---------- actions ----------
+function setView(v) {
+  if (idleBigScreen()) bigScreen(false);
+  if (v === "upload") { beep("start"); send("add"); return; }
+  if (S.web) exitWeb();
+  S.view = v; S.confirm = null;
+  if (v === "padtest") send("padStatus");
+  if (v === "games") S.gridSel = S.sel;
+  if (v === "favorites") S.gridSel = 0;
+  beep("move"); render();
+}
+// credits live in Coinsole's wallet; the coin button opens the token machine
+const PACKS = [{ n: 5 }, { n: 12, bonus: "10 + 2 BONUS" }, { n: 30, bonus: "25 + 5 BONUS" }];
+function insertCoin() { setView("credits"); }
+function buyPack() {
+  const p = PACKS[S.buySel || 0];
+  if (!p) return;
+  beep("coin"); toast(`+${p.n} CREDITS`);
+  if (native) send("buy", { amount: p.n }); else { S.credits += p.n; coinPop(); render(); }
+}
+function coinPop() { for (const id of ["xwallet"]) { const e = document.getElementById(id); e.classList.remove("coin-burst"); void e.offsetWidth; e.classList.add("coin-burst"); } }
+function start1P() {
+  if (S.view === "settings") return activateSetting();
+  if (S.view === "about") return openWebsite();
+  if (S.view === "credits") return buyPack();
+  if (S.view === "exit") { beep("back"); send("quit"); return; }
+  if (S.view === "padtest") return;
+  if (S.view === "info") S.view = "home";
+  if (S.view === "games" || S.view === "favorites") {
+    const g = pageGames()[S.gridSel];
+    if (!g) return;
+    S.sel = S.games.indexOf(g); S.view = "home";
+  }
+  if (onAdd()) { beep("start"); send("add"); return; }
+  const g = cur();
+  if (!g) { beep("err"); return; }
+  if (S.running) {
+    if (S.paused) { S.paused = false; beep("start"); send("resume"); render(); }
+    else toast("A GAME IS ALREADY RUNNING");
+    return;
+  }
+  // Play costs one credit from the wallet (Coinsole takes it and puts it into the game)
+  if (S.credits < 1) { beep("err"); toast("NO CREDITS LEFT: GET SOME AT THE TOKEN MACHINE"); setView("credits"); return; }
+  setTimeout(() => beep("start"), 120);
+  S.gameWaiting = false;
+  if (g.kind === "web") {
+    // one game at a time: a second Play while this one is starting (double click, pad + click) does nothing
+    if (S.web || S.spending) return;
+    if (native) { S.spending = g.id; setTimeout(() => (S.spending = null), 3000); send("spend", { id: g.id }); } else { S.credits--; playWeb(g); }
+  }
+  else { send("launch", { id: g.id, rect: screenRect() }); toast("LOADING " + g.name.toUpperCase() + " · 1 CREDIT"); }
+  render();
+}
+// where the screen is, inset from the rounded corners, so a game window can sit on it
+function screenRect() {
+  const r = crtEl().getBoundingClientRect(), k = (S.theater ? 6 : 12) * stageScale;
+  return [r.left + k, r.top + k, r.width - 2 * k, r.height - 2 * k];
+}
+function stopGame(why) { if (!S.running) return; beep("back"); send("stop", { why: why || "?" }); }
+// A game made for the page plays in its own layer, laid over whichever screen is showing (the home
+// screen or the big screen). Only its place and size change, so the game never restarts.
+function webFrame() { return document.querySelector("#webhost iframe"); }
+function playWeb(g) {
+  S.web = g.id;
+  const host = document.getElementById("webhost");
+  host.innerHTML = `<iframe src="${g.url}" allow="autoplay; fullscreen; gamepad"></iframe><button class="exit" id="exitBtn"><span class="sym">✕</span> ESC</button>`;
+  host.style.display = "block";
+  document.getElementById("exitBtn").onclick = exitWeb;
+  placeWeb();
+  setTimeout(() => webFrame()?.focus(), 200);
+}
+function placeWeb() {
+  const host = document.getElementById("webhost");
+  if (!S.web) { host.style.display = "none"; return; }
+  const r = crtEl().getBoundingClientRect(), corner = (S.theater ? 18 : 36) * stageScale;
+  Object.assign(host.style, { display: "block", left: r.left + "px", top: r.top + "px", width: r.width + "px", height: r.height + "px", borderRadius: corner + "px" });
+}
+addEventListener("resize", () => setTimeout(placeWeb, 0));
+function bigScreen(on) { beep("start"); if (native) send("bigscreen", { on }); else { S.theater = on; document.body.classList.toggle("theater", on); render(); } }
+function webBigScreen(on) { if (S.web) bigScreen(on); }
+// with no game open, big screen shows the selected game, ready to play
+const idleBigScreen = () => S.theater && !S.web && !S.running;
+function toggleBigScreen() {
+  if (S.web) return bigScreen(!S.theater);
+  if (S.running || S.view === "padtest") return;     // a Mac game handles the button itself; the controller page is testing it
+  if (S.theater) return bigScreen(false);
+  if (!S.games.length) { beep("err"); toast("ADD A GAME FIRST"); return; }
+  S.view = "home"; S.confirm = null; S.sel = Math.min(S.sel, S.games.length - 1); render();
+  bigScreen(true);
+}
+// a game on the screen asks to leave (Esc inside the game)
+addEventListener("message", (e) => {
+  if (!e.data) return;
+  if (e.data.type === "arcade-exit") exitWeb();
+  if (e.data.type === "arcade-bigscreen") webBigScreen(!S.theater);   // F inside the game
+});
+function exitWeb() { if (!S.web) return; S.web = null; beep("back"); const host = document.getElementById("webhost"); host.innerHTML = ""; host.style.display = "none"; if (S.theater) bigScreen(false); render(); }
+function toggleFav() {
+  const g = S.view === "games" || S.view === "favorites" ? pageGames()[S.gridSel] : cur();
+  if (!g) return;
+  const on = !isFav(g);
+  S.favorites = on ? [...S.favorites, g.id] : S.favorites.filter((x) => x !== g.id);
+  send("favorite", { id: g.id, on }); beep("fav"); toast(on ? "♥ ADDED TO FAVORITES" : "REMOVED FROM FAVORITES"); render();
+}
+function move(dx, dy) {
+  if (S.web) return;
+  if (S.view === "home") { const n = S.games.length + (idleBigScreen() ? 0 : 1); if (!n) return; S.sel = (S.sel + (dy || dx) + n) % n; }   // the last stop is "Add game" (not in big screen)
+  else if (S.view === "games" || S.view === "favorites") { const n = pageGames().length; if (!n) return; S.gridSel = Math.max(0, Math.min(n - 1, S.gridSel + dx + dy * 4)); }
+  else if (S.view === "settings") { const items = settingsItems(), n = items.length; if (dx && items[S.setSel]?.look) stepLook(dx); S.setSel = (S.setSel + dy + n) % n; S.confirm = null; }
+  else if (S.view === "padtest") { if (!dx) return; stepLook(dx); }              // ← → switch the look
+  else if (S.view === "credits") { const n = PACKS.length; S.buySel = ((S.buySel || 0) + (dy || dx) + n) % n; }
+  beep("move"); render();
+}
+
+// ---------- menus: arrow keys, or a real gamepad / arcade stick ----------
+// holding a direction moves once, then repeats after a short pause, like a real menu
+const hold = { dir: null, timer: null };
+function holdDir(dx, dy) {
+  const key = dx || dy ? dx + "," + dy : null;
+  if (hold.dir === key) return;
+  clearTimeout(hold.timer); hold.dir = key;
+  if (!key) return;
+  const step = (delay) => { move(dx, dy); hold.timer = setTimeout(() => step(130), delay); };
+  step(380);
+}
+// a USB / Bluetooth gamepad or arcade stick drives the menus (not the game while one is open)
+const pad = { prev: {}, dir: "0,0" };
+let nativePad = {};
+function currentPad() {
+  if (native) return S.pad.connected && nativePad.b ? { buttons: nativePad.b.map((v) => ({ pressed: !!v })), axes: nativePad.a || [] } : null;
+  return navigator.getGamepads ? [...navigator.getGamepads()].find(Boolean) : null;
+}
+function pollPads() {
+  const gp = currentPad();
+  if (boot.on) {                       // during the launch animation a button only skips it
+    if (gp && gp.buttons.some((x) => x && x.pressed)) { gp.buttons.forEach((x, i) => (pad.prev[i] = !!(x && x.pressed))); endIntro(); }
+    requestAnimationFrame(pollPads);
+    return;
+  }
+  if (gp && S.view === "padtest") {
+    // test screen: nothing navigates; hold B to leave
+    const b = (i) => !!(gp.buttons[i] && gp.buttons[i].pressed);
+    if (b(1)) { pad.bSince = pad.bSince || performance.now(); if (performance.now() - pad.bSince > 1000) { pad.bSince = 0; beep("back"); setView("home"); } }
+    else pad.bSince = 0;
+    for (let i = 0; i < 17; i++) pad.prev[i] = b(i);
+    pad.dir = "0,0";
+  } else if (gp && (!S.running || S.paused)) {
+    const b = (i) => !!(gp.buttons[i] && gp.buttons[i].pressed);
+    let dx = (b(15) ? 1 : 0) - (b(14) ? 1 : 0), dy = (b(13) ? 1 : 0) - (b(12) ? 1 : 0);
+    const ax = gp.axes[0] || 0, ay = gp.axes[1] || 0;
+    if (!dx && !dy && Math.max(Math.abs(ax), Math.abs(ay)) > 0.5) { if (Math.abs(ax) > Math.abs(ay)) dx = Math.sign(ax); else dy = Math.sign(ay); }
+    const edge = (i, fn) => { const on = b(i); if (on && !pad.prev[i]) fn(); pad.prev[i] = on; };
+    if (S.web) edge(8, exitWeb); // Select/Back leaves a game playing on the screen
+    else {
+      const key = dx + "," + dy;
+      if (key !== pad.dir) { pad.dir = key; holdDir(dx, dy); }
+      edge(0, start1P);                                          // A / bottom button
+      edge(9, start1P);                                                                    // Start
+      // B: back. With a game open (paused) it quits only when held for a second, because B is also
+      // "throw" in games and a quick press must never close the game by accident.
+      if (S.running) {
+        if (b(1)) { pad.bQuit = pad.bQuit || performance.now(); if (pad.bQuit > 0 && performance.now() - pad.bQuit > 1000) { pad.bQuit = -1; stopGame("B held on the pad"); } }
+        else pad.bQuit = 0;
+        pad.prev[1] = b(1);
+      } else edge(1, () => { if (idleBigScreen()) bigScreen(false); else if (S.view !== "home") { beep("back"); setView("home"); } });
+      edge(2, toggleFav);                                        // X favorite
+      edge(3, showInfo);                                                                   // Y game info
+      edge(4, () => move(0, -1));                                                          // LB previous
+      edge(5, () => move(0, 1));                                                           // RB next
+      edge(8, insertCoin);                                                                 // Select / Back
+    }
+  }
+  requestAnimationFrame(pollPads);
+}
+requestAnimationFrame(pollPads);
+if (!native) addEventListener("gamepadconnected", () => toast("CONTROLLER CONNECTED"));
+function renderPadStatus() {
+  updatePadScreen();
+  document.getElementById("xprofile").classList.toggle("ok", !!S.pad.connected);
+  document.getElementById("xprofile").title = S.pad.connected ? S.pad.name + " · test the controller" : "No controller connected";
+  if ((effectiveSkin() === "ps") !== S.ps) render();
+}
+// the buttons' names, in the order the controller reports them
+const PAD_NAMES = ["A", "B", "X", "Y", "LB", "RB", "LT", "RT", "VIEW", "MENU", "L3", "R3", "UP", "DOWN", "LEFT", "RIGHT", "XBOX"];
+document.querySelectorAll("#xnav button, .xpower, #xprofile, #xwallet").forEach((b) => b.onclick = () => setView(b.dataset.view));
+document.getElementById("xplay").onclick = start1P;
+document.getElementById("xbig").onclick = (e) => { e.currentTarget.blur(); toggleBigScreen(); };
+document.getElementById("xfav").onclick = toggleFav;
+document.getElementById("xinfoBtn").onclick = showInfo;
+document.getElementById("xadd").onclick = () => { beep("start"); send("add"); };
+
+addEventListener("keydown", (e) => {
+  if (e.metaKey) {
+    // these also work from the page, in case the hidden menu bar does not see them
+    if (e.key === "q" || e.key === "Q") { e.preventDefault(); send("quit"); }
+    else if (e.ctrlKey && (e.key === "f" || e.key === "F")) { e.preventDefault(); send("fullscreen"); }
+    return;
+  }
+  const k = e.key;
+  if (S.web) { if (k === "Escape") exitWeb(); return; }
+  if (k === "ArrowUp") move(0, -1);
+  else if (k === "ArrowDown") move(0, 1);
+  else if (k === "ArrowLeft") move(-1, 0);
+  else if (k === "ArrowRight") move(1, 0);
+  else if (k === "Enter" || k === " " || k === "1") { e.preventDefault(); start1P(); }
+  else if (k === "c" || k === "C" || k === "5") insertCoin();
+  else if (k === "f" || k === "F") toggleFav();
+  else if (k === "i" || k === "I") showInfo();
+  else if (k === "b" || k === "B") toggleBigScreen();
+  else if (k === "Escape") { if (idleBigScreen()) bigScreen(false); else if (S.running) stopGame("Esc in Coinsole"); else if (S.view !== "home") { beep("back"); setView("home"); } else send("exitFullscreen"); } // Esc on home: leave full screen
+  else return;
+  e.preventDefault();
+});
+
+if (matchMedia("(prefers-reduced-motion: reduce)").matches) { boot.started = true; endIntro(); }      // "Reduce motion" in macOS: no animation
+send("list");
+setTimeout(playIntro, 1500);   // even if the game list is late (macOS may be asking for folder access)
+render();
+</script>
+</body>
+</html>
