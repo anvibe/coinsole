@@ -1,6 +1,6 @@
-<p align="center"><img src="docs/coinsole-logo.svg" alt="Coinsole" width="320"></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/coinsole-logo.svg"><img src="docs/coinsole-logo-light.svg" alt="Coinsole" width="320"></picture></p>
 
-**Coinsole** turns your Mac into an arcade console. Add your own games and play them on a
+**Coinsole** turns your Mac into an arcade console. Add your own games and play them on an
 arcade-style screen with an Xbox or PlayStation controller, credits and a big-screen mode.
 
 ![Coinsole in 15 seconds: the home screen, the three built-in games, the token machine and the light look](docs/screenshots/demo.gif)

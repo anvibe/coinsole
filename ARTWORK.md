@@ -19,8 +19,8 @@ https://github.com/anvibe/coinsole. For commercial use, ask first.
 ## Name and logo: all rights reserved
 
 The name **Coinsole**, the Coinsole logo and the app icon are **not** covered by the licences above,
-wherever they appear (including `docs/coinsole-logo.svg`, `make_icon.swift` and drawings inside the
-source files). All rights reserved.
+wherever they appear (including `docs/coinsole-logo.svg`, `docs/coinsole-logo-light.svg`, `make_icon.swift`
+and drawings inside the source files). All rights reserved.
 
 You may use them unchanged to refer to this project, and keep them in unmodified copies of it.
 If you publish a changed version, give it a different name, logo and icon, and do not suggest that
